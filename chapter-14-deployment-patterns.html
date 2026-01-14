@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 14: Deployment Patterns | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=SF+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #111111;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --accent-pink: #ff375f;
+            --accent-yellow: #ffd60a;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 0%, rgba(255, 159, 10, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(255, 214, 10, 0.08) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        .chapter-header {
+            padding: 120px 0 80px;
+            text-align: center;
+        }
+
+        .chapter-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 159, 10, 0.15);
+            border: 1px solid rgba(255, 159, 10, 0.3);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-orange);
+            margin-bottom: 24px;
+        }
+
+        .chapter-badge::before {
+            content: '14';
+            background: var(--accent-orange);
+            color: #000;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .chapter-title {
+            font-size: clamp(42px, 6vw, 64px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #ff9f0a 0%, #ffd60a 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .chapter-subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto 48px;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 80px;
+        }
+
+        .stat-card {
+            background: rgba(255, 159, 10, 0.08);
+            border: 1px solid rgba(255, 159, 10, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            position: relative;
+            cursor: help;
+        }
+
+        .stat-card:hover {
+            background: rgba(255, 159, 10, 0.12);
+            border-color: rgba(255, 159, 10, 0.4);
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--accent-orange);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Sections */
+        .section {
+            margin-bottom: 80px;
+        }
+
+        .section-header {
+            margin-bottom: 40px;
+        }
+
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-orange);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        .section-desc {
+            font-size: 17px;
+            color: var(--text-secondary);
+            max-width: 800px;
+        }
+
+        /* Topology Grid */
+        .topology-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 32px;
+        }
+
+        .topology-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .topology-card:hover {
+            border-color: var(--accent-orange);
+            transform: translateY(-4px);
+        }
+
+        .topology-visual {
+            height: 280px;
+            background: rgba(255, 159, 10, 0.05);
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .topology-content {
+            padding: 28px;
+        }
+
+        .topology-name {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .topology-desc {
+            font-size: 15px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .topology-specs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .spec-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .spec-item svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--accent-orange);
+        }
+
+        /* Architecture Diagram */
+        .arch-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 48px;
+            position: relative;
+        }
+
+        .arch-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--accent-orange);
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        /* Spine-Leaf Visual */
+        .spine-leaf-container {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .tier-row {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            position: relative;
+        }
+
+        .tier-label {
+            position: absolute;
+            left: -100px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 80px;
+            text-align: right;
+        }
+
+        .switch-node {
+            width: 100px;
+            height: 60px;
+            background: linear-gradient(135deg, rgba(191, 90, 242, 0.3) 0%, rgba(191, 90, 242, 0.1) 100%);
+            border: 2px solid var(--accent-purple);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .switch-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(191, 90, 242, 0.3);
+        }
+
+        .switch-node.spine {
+            background: linear-gradient(135deg, rgba(255, 159, 10, 0.3) 0%, rgba(255, 159, 10, 0.1) 100%);
+            border-color: var(--accent-orange);
+        }
+
+        .switch-node.spine:hover {
+            box-shadow: 0 0 30px rgba(255, 159, 10, 0.3);
+        }
+
+        .switch-node.leaf {
+            background: linear-gradient(135deg, rgba(48, 209, 88, 0.3) 0%, rgba(48, 209, 88, 0.1) 100%);
+            border-color: var(--accent-green);
+        }
+
+        .switch-node.leaf:hover {
+            box-shadow: 0 0 30px rgba(48, 209, 88, 0.3);
+        }
+
+        .node-icon {
+            width: 20px;
+            height: 20px;
+            margin-bottom: 4px;
+        }
+
+        /* DPU Server Nodes */
+        .server-pod {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dpu-server {
+            width: 70px;
+            height: 50px;
+            background: linear-gradient(135deg, rgba(100, 210, 255, 0.3) 0%, rgba(100, 210, 255, 0.1) 100%);
+            border: 2px solid var(--accent-cyan);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 600;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .dpu-server:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(100, 210, 255, 0.3);
+        }
+
+        .gpu-cluster {
+            display: flex;
+            gap: 4px;
+        }
+
+        .gpu-node {
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, rgba(48, 209, 88, 0.4) 0%, rgba(48, 209, 88, 0.2) 100%);
+            border: 1px solid var(--accent-green);
+            border-radius: 4px;
+            font-size: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* Connection Lines */
+        .connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .connection-line {
+            stroke: rgba(255, 255, 255, 0.15);
+            stroke-width: 1;
+            fill: none;
+        }
+
+        /* Scale Patterns */
+        .scale-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .scale-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .scale-card:hover {
+            border-color: var(--accent-orange);
+            transform: translateY(-4px);
+        }
+
+        .scale-icon {
+            width: 64px;
+            height: 64px;
+            background: rgba(255, 159, 10, 0.1);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+        }
+
+        .scale-icon svg {
+            width: 32px;
+            height: 32px;
+            stroke: var(--accent-orange);
+        }
+
+        .scale-name {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .scale-range {
+            font-size: 14px;
+            color: var(--accent-orange);
+            margin-bottom: 12px;
+        }
+
+        .scale-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* Redundancy Diagram */
+        .redundancy-visual {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 48px;
+        }
+
+        .redundancy-paths {
+            display: flex;
+            justify-content: center;
+            gap: 80px;
+            margin-top: 40px;
+        }
+
+        .path-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .path-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .path-node {
+            width: 120px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .path-node:hover {
+            transform: scale(1.05);
+        }
+
+        .path-node.primary {
+            background: linear-gradient(135deg, rgba(48, 209, 88, 0.3) 0%, rgba(48, 209, 88, 0.1) 100%);
+            border: 2px solid var(--accent-green);
+        }
+
+        .path-node.secondary {
+            background: linear-gradient(135deg, rgba(255, 159, 10, 0.3) 0%, rgba(255, 159, 10, 0.1) 100%);
+            border: 2px solid var(--accent-orange);
+        }
+
+        .path-node.failed {
+            background: linear-gradient(135deg, rgba(255, 69, 58, 0.3) 0%, rgba(255, 69, 58, 0.1) 100%);
+            border: 2px solid var(--accent-red);
+            opacity: 0.5;
+        }
+
+        .path-arrow {
+            width: 24px;
+            height: 24px;
+            stroke: var(--text-tertiary);
+        }
+
+        /* Failover Timeline */
+        .failover-timeline {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            margin-top: 48px;
+            padding: 0 40px;
+        }
+
+        .timeline-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            position: relative;
+        }
+
+        .timeline-step::after {
+            content: '';
+            position: absolute;
+            top: 24px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: var(--border-subtle);
+        }
+
+        .timeline-step:last-child::after {
+            display: none;
+        }
+
+        .step-dot {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+            z-index: 1;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .step-dot:hover {
+            transform: scale(1.1);
+        }
+
+        .step-dot.detect {
+            background: var(--accent-red);
+            color: #000;
+        }
+
+        .step-dot.notify {
+            background: var(--accent-orange);
+            color: #000;
+        }
+
+        .step-dot.switch {
+            background: var(--accent-yellow);
+            color: #000;
+        }
+
+        .step-dot.verify {
+            background: var(--accent-green);
+            color: #000;
+        }
+
+        .step-label {
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 12px;
+            text-align: center;
+        }
+
+        .step-time {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        /* Comparison Table */
+        .comparison-table-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th {
+            background: rgba(255, 159, 10, 0.1);
+            padding: 20px 24px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent-orange);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .comparison-table td {
+            padding: 20px 24px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: help;
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .comparison-table tr:hover td {
+            background: rgba(255, 159, 10, 0.05);
+        }
+
+        .pattern-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .rating {
+            display: flex;
+            gap: 4px;
+        }
+
+        .rating-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border-subtle);
+        }
+
+        .rating-dot.filled {
+            background: var(--accent-orange);
+        }
+
+        /* Multi-Tenant Architecture */
+        .tenant-arch {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 48px;
+        }
+
+        .tenant-layers {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .tenant-layer {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .layer-label {
+            width: 120px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: right;
+        }
+
+        .layer-content {
+            flex: 1;
+            display: flex;
+            gap: 16px;
+        }
+
+        .tenant-block {
+            flex: 1;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .tenant-block:hover {
+            transform: translateY(-4px);
+        }
+
+        .tenant-block.tenant-a {
+            background: linear-gradient(135deg, rgba(0, 113, 227, 0.3) 0%, rgba(0, 113, 227, 0.1) 100%);
+            border: 2px solid var(--accent-blue);
+        }
+
+        .tenant-block.tenant-b {
+            background: linear-gradient(135deg, rgba(191, 90, 242, 0.3) 0%, rgba(191, 90, 242, 0.1) 100%);
+            border: 2px solid var(--accent-purple);
+        }
+
+        .tenant-block.tenant-c {
+            background: linear-gradient(135deg, rgba(48, 209, 88, 0.3) 0%, rgba(48, 209, 88, 0.1) 100%);
+            border: 2px solid var(--accent-green);
+        }
+
+        .tenant-block.shared {
+            background: linear-gradient(135deg, rgba(255, 159, 10, 0.3) 0%, rgba(255, 159, 10, 0.1) 100%);
+            border: 2px solid var(--accent-orange);
+        }
+
+        .block-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .block-detail {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        /* Best Practices */
+        .practices-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .practice-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .practice-card:hover {
+            border-color: var(--accent-orange);
+            transform: translateY(-4px);
+        }
+
+        .practice-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 159, 10, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .practice-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: var(--accent-orange);
+        }
+
+        .practice-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .practice-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .practice-bullets {
+            list-style: none;
+        }
+
+        .practice-bullets li {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            padding: 4px 0;
+            padding-left: 16px;
+            position: relative;
+        }
+
+        .practice-bullets li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--accent-orange);
+        }
+
+        /* Tooltip System */
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--accent-orange);
+            border-radius: 12px;
+            padding: 16px 20px;
+            max-width: 320px;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.2s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid var(--accent-orange);
+        }
+
+        .tooltip-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-orange);
+            margin-bottom: 8px;
+        }
+
+        .tooltip-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Navigation */
+        .chapter-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 48px 0;
+            margin-top: 80px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 15px;
+            transition: color 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--accent-orange);
+        }
+
+        .nav-link svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+        }
+
+        .home-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 14px;
+            padding: 12px 24px;
+            background: rgba(255, 159, 10, 0.1);
+            border-radius: 100px;
+            transition: all 0.2s ease;
+        }
+
+        .home-link:hover {
+            background: rgba(255, 159, 10, 0.2);
+            color: var(--accent-orange);
+        }
+
+        @media (max-width: 768px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .topology-grid { grid-template-columns: 1fr; }
+            .scale-grid { grid-template-columns: 1fr; }
+            .practices-grid { grid-template-columns: 1fr; }
+            .tier-label { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    
+    <div class="container">
+        <header class="chapter-header">
+            <div class="chapter-badge">Chapter Fourteen</div>
+            <h1 class="chapter-title">Deployment Patterns</h1>
+            <p class="chapter-subtitle">
+                Real-world architectures for AI clusters: topology design, high availability, 
+                scaling strategies, and production-grade deployment configurations.
+            </p>
+        </header>
+
+        <!-- Key Stats -->
+        <div class="stats-bar">
+            <div class="stat-card" data-tooltip='{"title":"Spine-Leaf Architecture","text":"Most common topology for AI clusters. Non-blocking fabric with equal hop count between any two endpoints. Essential for all-reduce operations.","color":"#ff9f0a"}'>
+                <div class="stat-value">3-Tier</div>
+                <div class="stat-label">Typical Topology</div>
+            </div>
+            <div class="stat-card" data-tooltip='{"title":"High Availability Target","text":"Five nines availability requires less than 5.26 minutes downtime per year. Achieved through redundant paths, fast failover, and predictive maintenance.","color":"#ff9f0a"}'>
+                <div class="stat-value">99.999%</div>
+                <div class="stat-label">Availability Target</div>
+            </div>
+            <div class="stat-card" data-tooltip='{"title":"Failover Time","text":"Sub-50ms failover ensures gradient synchronization continues without visible impact. Requires pre-computed backup paths and hardware-based detection.","color":"#ff9f0a"}'>
+                <div class="stat-value"><50ms</div>
+                <div class="stat-label">Failover Time</div>
+            </div>
+            <div class="stat-card" data-tooltip='{"title":"Scale Factor","text":"Modern AI clusters scale from 8 GPUs to over 100,000 GPUs. DPU-based isolation enables linear scaling without proportional complexity increase.","color":"#ff9f0a"}'>
+                <div class="stat-value">100K+</div>
+                <div class="stat-label">GPU Scale</div>
+            </div>
+        </div>
+
+        <!-- Common Topologies -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Network Architecture</div>
+                <h2 class="section-title">Common Deployment Topologies</h2>
+                <p class="section-desc">
+                    Each topology offers different trade-offs between latency, bandwidth, cost, and failure domains. 
+                    Spine-leaf is the dominant choice for AI clusters due to predictable latency and easy scaling.
+                </p>
+            </div>
+
+            <div class="topology-grid">
+                <div class="topology-card">
+                    <div class="topology-visual">
+                        <svg width="100%" height="100%" viewBox="0 0 300 200">
+                            <!-- Spine switches -->
+                            <rect x="75" y="20" width="60" height="35" rx="6" fill="rgba(255, 159, 10, 0.3)" stroke="#ff9f0a" stroke-width="2"/>
+                            <text x="105" y="42" fill="#ff9f0a" font-size="10" font-weight="600" text-anchor="middle">Spine 1</text>
+                            <rect x="165" y="20" width="60" height="35" rx="6" fill="rgba(255, 159, 10, 0.3)" stroke="#ff9f0a" stroke-width="2"/>
+                            <text x="195" y="42" fill="#ff9f0a" font-size="10" font-weight="600" text-anchor="middle">Spine 2</text>
+                            
+                            <!-- Leaf switches -->
+                            <rect x="30" y="85" width="50" height="30" rx="5" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="2"/>
+                            <text x="55" y="104" fill="#30d158" font-size="9" font-weight="600" text-anchor="middle">Leaf 1</text>
+                            <rect x="100" y="85" width="50" height="30" rx="5" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="2"/>
+                            <text x="125" y="104" fill="#30d158" font-size="9" font-weight="600" text-anchor="middle">Leaf 2</text>
+                            <rect x="170" y="85" width="50" height="30" rx="5" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="2"/>
+                            <text x="195" y="104" fill="#30d158" font-size="9" font-weight="600" text-anchor="middle">Leaf 3</text>
+                            <rect x="240" y="85" width="50" height="30" rx="5" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="2"/>
+                            <text x="265" y="104" fill="#30d158" font-size="9" font-weight="600" text-anchor="middle">Leaf 4</text>
+                            
+                            <!-- Connections Spine to Leaf -->
+                            <line x1="105" y1="55" x2="55" y2="85" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            <line x1="105" y1="55" x2="125" y2="85" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            <line x1="105" y1="55" x2="195" y2="85" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            <line x1="105" y1="55" x2="265" y2="85" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            <line x1="195" y1="55" x2="55" y2="85" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            <line x1="195" y1="55" x2="125" y2="85" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            <line x1="195" y1="55" x2="195" y2="85" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            <line x1="195" y1="55" x2="265" y2="85" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            
+                            <!-- DPU Servers -->
+                            <rect x="20" y="140" width="35" height="25" rx="4" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1.5"/>
+                            <text x="37" y="156" fill="#64d2ff" font-size="7" font-weight="600" text-anchor="middle">DPU</text>
+                            <rect x="60" y="140" width="35" height="25" rx="4" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1.5"/>
+                            <text x="77" y="156" fill="#64d2ff" font-size="7" font-weight="600" text-anchor="middle">DPU</text>
+                            <rect x="108" y="140" width="35" height="25" rx="4" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1.5"/>
+                            <text x="125" y="156" fill="#64d2ff" font-size="7" font-weight="600" text-anchor="middle">DPU</text>
+                            <rect x="178" y="140" width="35" height="25" rx="4" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1.5"/>
+                            <text x="195" y="156" fill="#64d2ff" font-size="7" font-weight="600" text-anchor="middle">DPU</text>
+                            <rect x="248" y="140" width="35" height="25" rx="4" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1.5"/>
+                            <text x="265" y="156" fill="#64d2ff" font-size="7" font-weight="600" text-anchor="middle">DPU</text>
+                            
+                            <!-- Leaf to Server connections -->
+                            <line x1="55" y1="115" x2="37" y2="140" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            <line x1="55" y1="115" x2="77" y2="140" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            <line x1="125" y1="115" x2="125" y2="140" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            <line x1="195" y1="115" x2="195" y2="140" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            <line x1="265" y1="115" x2="265" y2="140" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            
+                            <!-- GPU indicators -->
+                            <g transform="translate(20, 170)">
+                                <rect x="0" y="0" width="8" height="8" rx="2" fill="#30d158" opacity="0.6"/>
+                                <rect x="10" y="0" width="8" height="8" rx="2" fill="#30d158" opacity="0.6"/>
+                                <rect x="20" y="0" width="8" height="8" rx="2" fill="#30d158" opacity="0.6"/>
+                                <rect x="30" y="0" width="8" height="8" rx="2" fill="#30d158" opacity="0.6"/>
+                            </g>
+                            <g transform="translate(60, 170)">
+                                <rect x="0" y="0" width="8" height="8" rx="2" fill="#30d158" opacity="0.6"/>
+                                <rect x="10" y="0" width="8" height="8" rx="2" fill="#30d158" opacity="0.6"/>
+                                <rect x="20" y="0" width="8" height="8" rx="2" fill="#30d158" opacity="0.6"/>
+                                <rect x="30" y="0" width="8" height="8" rx="2" fill="#30d158" opacity="0.6"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="topology-content">
+                        <h3 class="topology-name">Spine-Leaf (2-Tier)</h3>
+                        <p class="topology-desc">The gold standard for AI clusters. Every leaf connects to every spine, providing equal-cost multipath and predictable 3-hop maximum latency.</p>
+                        <div class="topology-specs">
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                <span>~500ns latency</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>
+                                <span>Up to 10K nodes</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+                                <span>Non-blocking</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                <span>N+1 redundancy</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="topology-card">
+                    <div class="topology-visual">
+                        <svg width="100%" height="100%" viewBox="0 0 300 200">
+                            <!-- Super-Spine -->
+                            <rect x="100" y="10" width="100" height="30" rx="5" fill="rgba(191, 90, 242, 0.3)" stroke="#bf5af2" stroke-width="2"/>
+                            <text x="150" y="30" fill="#bf5af2" font-size="10" font-weight="600" text-anchor="middle">Super-Spine Pod</text>
+                            
+                            <!-- Spine switches -->
+                            <rect x="40" y="60" width="50" height="28" rx="5" fill="rgba(255, 159, 10, 0.3)" stroke="#ff9f0a" stroke-width="2"/>
+                            <text x="65" y="78" fill="#ff9f0a" font-size="8" font-weight="600" text-anchor="middle">Spine A</text>
+                            <rect x="125" y="60" width="50" height="28" rx="5" fill="rgba(255, 159, 10, 0.3)" stroke="#ff9f0a" stroke-width="2"/>
+                            <text x="150" y="78" fill="#ff9f0a" font-size="8" font-weight="600" text-anchor="middle">Spine B</text>
+                            <rect x="210" y="60" width="50" height="28" rx="5" fill="rgba(255, 159, 10, 0.3)" stroke="#ff9f0a" stroke-width="2"/>
+                            <text x="235" y="78" fill="#ff9f0a" font-size="8" font-weight="600" text-anchor="middle">Spine C</text>
+                            
+                            <!-- Super-spine to spine -->
+                            <line x1="150" y1="40" x2="65" y2="60" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            <line x1="150" y1="40" x2="150" y2="60" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            <line x1="150" y1="40" x2="235" y2="60" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            
+                            <!-- Leaf pods -->
+                            <rect x="20" y="110" width="40" height="22" rx="4" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="1.5"/>
+                            <text x="40" y="124" fill="#30d158" font-size="7" font-weight="600" text-anchor="middle">Pod 1</text>
+                            <rect x="70" y="110" width="40" height="22" rx="4" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="1.5"/>
+                            <text x="90" y="124" fill="#30d158" font-size="7" font-weight="600" text-anchor="middle">Pod 2</text>
+                            <rect x="120" y="110" width="40" height="22" rx="4" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="1.5"/>
+                            <text x="140" y="124" fill="#30d158" font-size="7" font-weight="600" text-anchor="middle">Pod 3</text>
+                            <rect x="170" y="110" width="40" height="22" rx="4" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="1.5"/>
+                            <text x="190" y="124" fill="#30d158" font-size="7" font-weight="600" text-anchor="middle">Pod 4</text>
+                            <rect x="220" y="110" width="40" height="22" rx="4" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="1.5"/>
+                            <text x="240" y="124" fill="#30d158" font-size="7" font-weight="600" text-anchor="middle">Pod 5</text>
+                            
+                            <!-- Spine to Leaf connections -->
+                            <line x1="65" y1="88" x2="40" y2="110" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            <line x1="65" y1="88" x2="90" y2="110" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            <line x1="150" y1="88" x2="140" y2="110" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            <line x1="235" y1="88" x2="190" y2="110" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            <line x1="235" y1="88" x2="240" y2="110" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+                            
+                            <!-- DPU clusters -->
+                            <g transform="translate(15, 145)">
+                                <rect x="0" y="0" width="20" height="15" rx="3" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1"/>
+                                <rect x="25" y="0" width="20" height="15" rx="3" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1"/>
+                            </g>
+                            <g transform="translate(115, 145)">
+                                <rect x="0" y="0" width="20" height="15" rx="3" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1"/>
+                                <rect x="25" y="0" width="20" height="15" rx="3" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1"/>
+                            </g>
+                            <g transform="translate(215, 145)">
+                                <rect x="0" y="0" width="20" height="15" rx="3" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1"/>
+                                <rect x="25" y="0" width="20" height="15" rx="3" fill="rgba(100, 210, 255, 0.3)" stroke="#64d2ff" stroke-width="1"/>
+                            </g>
+                            
+                            <!-- GPU clusters -->
+                            <g transform="translate(15, 170)">
+                                <rect x="0" y="0" width="6" height="6" rx="1" fill="#30d158" opacity="0.5"/>
+                                <rect x="8" y="0" width="6" height="6" rx="1" fill="#30d158" opacity="0.5"/>
+                                <rect x="16" y="0" width="6" height="6" rx="1" fill="#30d158" opacity="0.5"/>
+                                <rect x="24" y="0" width="6" height="6" rx="1" fill="#30d158" opacity="0.5"/>
+                                <rect x="32" y="0" width="6" height="6" rx="1" fill="#30d158" opacity="0.5"/>
+                                <rect x="40" y="0" width="6" height="6" rx="1" fill="#30d158" opacity="0.5"/>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="topology-content">
+                        <h3 class="topology-name">3-Tier Clos (Fat-Tree)</h3>
+                        <p class="topology-desc">Extended spine-leaf with super-spine layer for massive scale. Required when GPU count exceeds single spine-leaf capacity (~10K nodes).</p>
+                        <div class="topology-specs">
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                <span>~800ns latency</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>
+                                <span>Up to 100K+ nodes</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+                                <span>Full bisection BW</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                <span>Pod isolation</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="topology-card">
+                    <div class="topology-visual">
+                        <svg width="100%" height="100%" viewBox="0 0 300 200">
+                            <!-- Rail optimized switches -->
+                            <rect x="40" y="30" width="70" height="35" rx="6" fill="rgba(255, 55, 95, 0.3)" stroke="#ff375f" stroke-width="2"/>
+                            <text x="75" y="52" fill="#ff375f" font-size="9" font-weight="600" text-anchor="middle">Rail 0 Fabric</text>
+                            <rect x="130" y="30" width="70" height="35" rx="6" fill="rgba(0, 113, 227, 0.3)" stroke="#0071e3" stroke-width="2"/>
+                            <text x="165" y="52" fill="#0071e3" font-size="9" font-weight="600" text-anchor="middle">Rail 1 Fabric</text>
+                            <rect x="220" y="30" width="70" height="35" rx="6" fill="rgba(48, 209, 88, 0.3)" stroke="#30d158" stroke-width="2"/>
+                            <text x="255" y="52" fill="#30d158" font-size="9" font-weight="600" text-anchor="middle">Rail 2 Fabric</text>
+                            
+                            <!-- GPU Servers with rail connections -->
+                            <g transform="translate(30, 100)">
+                                <rect x="0" y="0" width="80" height="45" rx="6" fill="rgba(100, 210, 255, 0.2)" stroke="#64d2ff" stroke-width="1.5"/>
+                                <text x="40" y="18" fill="#64d2ff" font-size="8" font-weight="600" text-anchor="middle">Server 1 (DPU)</text>
+                                <g transform="translate(10, 25)">
+                                    <rect x="0" y="0" width="12" height="12" rx="2" fill="#ff375f" opacity="0.7"/>
+                                    <rect x="16" y="0" width="12" height="12" rx="2" fill="#0071e3" opacity="0.7"/>
+                                    <rect x="32" y="0" width="12" height="12" rx="2" fill="#30d158" opacity="0.7"/>
+                                    <rect x="48" y="0" width="12" height="12" rx="2" fill="#ff9f0a" opacity="0.7"/>
+                                </g>
+                            </g>
+                            <g transform="translate(130, 100)">
+                                <rect x="0" y="0" width="80" height="45" rx="6" fill="rgba(100, 210, 255, 0.2)" stroke="#64d2ff" stroke-width="1.5"/>
+                                <text x="40" y="18" fill="#64d2ff" font-size="8" font-weight="600" text-anchor="middle">Server 2 (DPU)</text>
+                                <g transform="translate(10, 25)">
+                                    <rect x="0" y="0" width="12" height="12" rx="2" fill="#ff375f" opacity="0.7"/>
+                                    <rect x="16" y="0" width="12" height="12" rx="2" fill="#0071e3" opacity="0.7"/>
+                                    <rect x="32" y="0" width="12" height="12" rx="2" fill="#30d158" opacity="0.7"/>
+                                    <rect x="48" y="0" width="12" height="12" rx="2" fill="#ff9f0a" opacity="0.7"/>
+                                </g>
+                            </g>
+                            <g transform="translate(230, 100)">
+                                <rect x="0" y="0" width="60" height="45" rx="6" fill="rgba(100, 210, 255, 0.2)" stroke="#64d2ff" stroke-width="1.5"/>
+                                <text x="30" y="18" fill="#64d2ff" font-size="8" font-weight="600" text-anchor="middle">Server 3</text>
+                                <g transform="translate(5, 25)">
+                                    <rect x="0" y="0" width="12" height="12" rx="2" fill="#ff375f" opacity="0.7"/>
+                                    <rect x="16" y="0" width="12" height="12" rx="2" fill="#0071e3" opacity="0.7"/>
+                                    <rect x="32" y="0" width="12" height="12" rx="2" fill="#30d158" opacity="0.7"/>
+                                </g>
+                            </g>
+                            
+                            <!-- Rail connections -->
+                            <line x1="75" y1="65" x2="45" y2="100" stroke="#ff375f" stroke-width="2" opacity="0.5"/>
+                            <line x1="75" y1="65" x2="145" y2="100" stroke="#ff375f" stroke-width="2" opacity="0.5"/>
+                            <line x1="75" y1="65" x2="243" y2="100" stroke="#ff375f" stroke-width="2" opacity="0.5"/>
+                            
+                            <line x1="165" y1="65" x2="57" y2="100" stroke="#0071e3" stroke-width="2" opacity="0.5"/>
+                            <line x1="165" y1="65" x2="157" y2="100" stroke="#0071e3" stroke-width="2" opacity="0.5"/>
+                            <line x1="165" y1="65" x2="255" y2="100" stroke="#0071e3" stroke-width="2" opacity="0.5"/>
+                            
+                            <line x1="255" y1="65" x2="69" y2="100" stroke="#30d158" stroke-width="2" opacity="0.5"/>
+                            <line x1="255" y1="65" x2="169" y2="100" stroke="#30d158" stroke-width="2" opacity="0.5"/>
+                            <line x1="255" y1="65" x2="267" y2="100" stroke="#30d158" stroke-width="2" opacity="0.5"/>
+                            
+                            <!-- Legend -->
+                            <g transform="translate(20, 165)">
+                                <rect x="0" y="0" width="10" height="10" rx="2" fill="#ff375f"/>
+                                <text x="15" y="9" fill="#a1a1a6" font-size="8">GPU Rail 0</text>
+                                <rect x="70" y="0" width="10" height="10" rx="2" fill="#0071e3"/>
+                                <text x="85" y="9" fill="#a1a1a6" font-size="8">GPU Rail 1</text>
+                                <rect x="140" y="0" width="10" height="10" rx="2" fill="#30d158"/>
+                                <text x="155" y="9" fill="#a1a1a6" font-size="8">GPU Rail 2</text>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="topology-content">
+                        <h3 class="topology-name">Rail-Optimized</h3>
+                        <p class="topology-desc">Separates GPU traffic by NVLink rail number. Each GPU connects to dedicated fabric, eliminating incast at ToR switches during all-reduce.</p>
+                        <div class="topology-specs">
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                <span>~400ns latency</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>
+                                <span>8-16 rails typical</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+                                <span>No incast</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                <span>NVIDIA DGX optimized</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="topology-card">
+                    <div class="topology-visual">
+                        <svg width="100%" height="100%" viewBox="0 0 300 200">
+                            <!-- Dragonfly groups -->
+                            <g transform="translate(30, 30)">
+                                <ellipse cx="50" cy="40" rx="45" ry="35" fill="rgba(255, 159, 10, 0.15)" stroke="#ff9f0a" stroke-width="2"/>
+                                <text x="50" y="35" fill="#ff9f0a" font-size="9" font-weight="600" text-anchor="middle">Group A</text>
+                                <circle cx="30" cy="50" r="8" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                                <circle cx="50" cy="55" r="8" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                                <circle cx="70" cy="50" r="8" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                            </g>
+                            <g transform="translate(160, 30)">
+                                <ellipse cx="50" cy="40" rx="45" ry="35" fill="rgba(191, 90, 242, 0.15)" stroke="#bf5af2" stroke-width="2"/>
+                                <text x="50" y="35" fill="#bf5af2" font-size="9" font-weight="600" text-anchor="middle">Group B</text>
+                                <circle cx="30" cy="50" r="8" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                                <circle cx="50" cy="55" r="8" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                                <circle cx="70" cy="50" r="8" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                            </g>
+                            <g transform="translate(95, 110)">
+                                <ellipse cx="50" cy="40" rx="45" ry="35" fill="rgba(48, 209, 88, 0.15)" stroke="#30d158" stroke-width="2"/>
+                                <text x="50" y="35" fill="#30d158" font-size="9" font-weight="600" text-anchor="middle">Group C</text>
+                                <circle cx="30" cy="50" r="8" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                                <circle cx="50" cy="55" r="8" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                                <circle cx="70" cy="50" r="8" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                            </g>
+                            
+                            <!-- Global links between groups -->
+                            <path d="M125 70 Q150 90 175 70" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2" fill="none" stroke-dasharray="4,4"/>
+                            <path d="M80 95 Q95 130 125 130" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2" fill="none" stroke-dasharray="4,4"/>
+                            <path d="M210 95 Q195 130 175 130" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2" fill="none" stroke-dasharray="4,4"/>
+                            
+                            <!-- Legend -->
+                            <g transform="translate(20, 175)">
+                                <circle cx="5" cy="5" r="5" fill="rgba(100, 210, 255, 0.5)" stroke="#64d2ff" stroke-width="1"/>
+                                <text x="15" y="9" fill="#a1a1a6" font-size="8">DPU Router</text>
+                                <line x1="80" y1="5" x2="100" y2="5" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2" stroke-dasharray="4,4"/>
+                                <text x="105" y="9" fill="#a1a1a6" font-size="8">Global Link</text>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="topology-content">
+                        <h3 class="topology-name">Dragonfly+</h3>
+                        <p class="topology-desc">HPC-inspired topology with local and global links. Nodes within a group communicate directly; inter-group uses high-bandwidth global links.</p>
+                        <div class="topology-specs">
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                <span>~600ns local</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 12h16"/><path d="M12 4v16"/></svg>
+                                <span>100K+ scale</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+                                <span>Low cable cost</span>
+                            </div>
+                            <div class="spec-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                <span>Adaptive routing</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Scaling Strategies -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Capacity Planning</div>
+                <h2 class="section-title">Scaling Strategies</h2>
+                <p class="section-desc">
+                    DPU-based isolation enables different scaling approaches depending on cluster size, 
+                    growth trajectory, and workload characteristics.
+                </p>
+            </div>
+
+            <div class="scale-grid">
+                <div class="scale-card" data-tooltip='{"title":"Small Cluster Deployment","text":"Ideal for research labs, startups, and proof-of-concept. Single ToR switch with BlueField-3 DPUs. All nodes within single broadcast domain. 1-2 week deployment time.","color":"#ff9f0a"}'>
+                    <div class="scale-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <rect x="4" y="4" width="16" height="16" rx="2"/>
+                            <circle cx="9" cy="9" r="2"/>
+                            <circle cx="15" cy="9" r="2"/>
+                            <circle cx="9" cy="15" r="2"/>
+                            <circle cx="15" cy="15" r="2"/>
+                        </svg>
+                    </div>
+                    <h3 class="scale-name">Pod Scale</h3>
+                    <div class="scale-range">8-64 GPUs</div>
+                    <p class="scale-desc">Single-rack deployment with direct connectivity. Perfect for development and small training jobs.</p>
+                </div>
+
+                <div class="scale-card" data-tooltip='{"title":"Medium Cluster Deployment","text":"Production workloads, enterprise AI. 2-tier spine-leaf with BlueField-3/4. Multiple tenant isolation. Typical 4-8 week deployment cycle with testing.","color":"#ff9f0a"}'>
+                    <div class="scale-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <rect x="2" y="6" width="8" height="12" rx="1"/>
+                            <rect x="14" y="6" width="8" height="12" rx="1"/>
+                            <path d="M10 10h4M10 14h4"/>
+                        </svg>
+                    </div>
+                    <h3 class="scale-name">Cluster Scale</h3>
+                    <div class="scale-range">64-1,024 GPUs</div>
+                    <p class="scale-desc">Multi-rack spine-leaf topology. Supports multiple concurrent training jobs with full isolation.</p>
+                </div>
+
+                <div class="scale-card" data-tooltip='{"title":"Large Cluster Deployment","text":"Hyperscale AI training. 3-tier Clos or Dragonfly+. BlueField-4 with ASTRA required. 12-24 month build-out typical. Requires dedicated operations team.","color":"#ff9f0a"}'>
+                    <div class="scale-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <rect x="2" y="4" width="5" height="16" rx="1"/>
+                            <rect x="9" y="4" width="5" height="16" rx="1"/>
+                            <rect x="16" y="4" width="5" height="16" rx="1"/>
+                            <path d="M4.5 2v2M11.5 2v2M18.5 2v2"/>
+                        </svg>
+                    </div>
+                    <h3 class="scale-name">Datacenter Scale</h3>
+                    <div class="scale-range">1,024-100K+ GPUs</div>
+                    <p class="scale-desc">Multi-tier fabric with super-spine. Foundation model training at frontier scale.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- High Availability -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Reliability</div>
+                <h2 class="section-title">High Availability Architecture</h2>
+                <p class="section-desc">
+                    Five-nines availability requires redundancy at every layer: dual DPUs, multiple paths, 
+                    and sub-50ms failover with no tenant-visible impact.
+                </p>
+            </div>
+
+            <div class="redundancy-visual">
+                <div class="arch-title">Active-Active DPU Redundancy with ECMP</div>
+                
+                <div class="tenant-arch">
+                    <div class="tenant-layers">
+                        <div class="tenant-layer">
+                            <div class="layer-label">Network Fabric</div>
+                            <div class="layer-content">
+                                <div class="tenant-block shared" data-tooltip='{"title":"Spine Layer","text":"Dual spine switches with ECMP. All traffic load-balanced across both paths. Single spine failure = 50% capacity, zero packet loss.","color":"#ff9f0a"}'>
+                                    <div class="block-title">Spine A</div>
+                                    <div class="block-detail">400G × 32 ports</div>
+                                </div>
+                                <div class="tenant-block shared" data-tooltip='{"title":"Spine Layer","text":"Redundant spine with identical configuration. BGP peering with all leaves. Graceful restart enabled for hitless failover.","color":"#ff9f0a"}'>
+                                    <div class="block-title">Spine B</div>
+                                    <div class="block-detail">400G × 32 ports</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tenant-layer">
+                            <div class="layer-label">Leaf Switches</div>
+                            <div class="layer-content">
+                                <div class="tenant-block tenant-a" data-tooltip='{"title":"ToR Switch Pair","text":"Dual-homed to both spines. MLAG/VPC for server connectivity. BFD for 50ms failure detection.","color":"#0071e3"}'>
+                                    <div class="block-title">Leaf 1A/1B</div>
+                                    <div class="block-detail">Rack 1 - MLAG</div>
+                                </div>
+                                <div class="tenant-block tenant-b" data-tooltip='{"title":"ToR Switch Pair","text":"Independent failure domain from Leaf 1. Hosts different tenant workloads for blast radius reduction.","color":"#bf5af2"}'>
+                                    <div class="block-title">Leaf 2A/2B</div>
+                                    <div class="block-detail">Rack 2 - MLAG</div>
+                                </div>
+                                <div class="tenant-block tenant-c" data-tooltip='{"title":"ToR Switch Pair","text":"Third rack with dedicated storage network. NVMe-oF traffic isolated from GPU traffic.","color":"#30d158"}'>
+                                    <div class="block-title">Leaf 3A/3B</div>
+                                    <div class="block-detail">Rack 3 - MLAG</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tenant-layer">
+                            <div class="layer-label">DPU Layer</div>
+                            <div class="layer-content">
+                                <div class="tenant-block tenant-a" data-tooltip='{"title":"Primary DPU","text":"BlueField-3/4 handling all isolation policy. Active path for tenant traffic. Hardware metering and flow tables.","color":"#0071e3"}'>
+                                    <div class="block-title">DPU Primary</div>
+                                    <div class="block-detail">Active - 400G</div>
+                                </div>
+                                <div class="tenant-block tenant-b" data-tooltip='{"title":"Standby DPU","text":"Hot standby with synchronized flow state. Takes over within 50ms on primary failure. Identical policy configuration.","color":"#bf5af2"}'>
+                                    <div class="block-title">DPU Standby</div>
+                                    <div class="block-detail">Hot Standby</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tenant-layer">
+                            <div class="layer-label">GPU Servers</div>
+                            <div class="layer-content">
+                                <div class="tenant-block tenant-a" data-tooltip='{"title":"8× H100 Server","text":"Each GPU has dual NIC paths through DPU pair. PCIe bifurcation for independent failure domains.","color":"#0071e3"}'>
+                                    <div class="block-title">HGX-1</div>
+                                    <div class="block-detail">8× H100 80GB</div>
+                                </div>
+                                <div class="tenant-block tenant-a" data-tooltip='{"title":"8× H100 Server","text":"Same rack as HGX-1 for NVLink domain. Shared DPU pair for consistent policy.","color":"#0071e3"}'>
+                                    <div class="block-title">HGX-2</div>
+                                    <div class="block-detail">8× H100 80GB</div>
+                                </div>
+                                <div class="tenant-block tenant-b" data-tooltip='{"title":"8× H100 Server","text":"Different tenant, different rack. Complete isolation from Tenant A workloads.","color":"#bf5af2"}'>
+                                    <div class="block-title">HGX-3</div>
+                                    <div class="block-detail">8× H100 80GB</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Failover Timeline -->
+                <div class="failover-timeline">
+                    <div class="timeline-step">
+                        <div class="step-dot detect" data-tooltip='{"title":"Failure Detection","text":"BFD (Bidirectional Forwarding Detection) identifies link or DPU failure. Hardware-based detection in 15-50ms depending on BFD timer configuration.","color":"#ff453a"}'>1</div>
+                        <div class="step-label">Detect</div>
+                        <div class="step-time">15-50ms</div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="step-dot notify" data-tooltip='{"title":"Control Plane Notification","text":"BGP/EVPN withdraws failed path routes. Standby DPU receives activation signal. Flow state already synchronized.","color":"#ff9f0a"}'>2</div>
+                        <div class="step-label">Notify</div>
+                        <div class="step-time">5-10ms</div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="step-dot switch" data-tooltip='{"title":"Traffic Switchover","text":"ECMP rehashes flows to remaining paths. Standby DPU becomes active. In-flight packets may be reordered but not dropped.","color":"#ffd60a"}'>3</div>
+                        <div class="step-label">Switch</div>
+                        <div class="step-time">10-20ms</div>
+                    </div>
+                    <div class="timeline-step">
+                        <div class="step-dot verify" data-tooltip='{"title":"Verification & Healing","text":"Health checks confirm new path stability. Operations team alerted for repair. Automatic spare provisioning if available.","color":"#30d158"}'>4</div>
+                        <div class="step-label">Verify</div>
+                        <div class="step-time">100-500ms</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Deployment Comparison -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Decision Matrix</div>
+                <h2 class="section-title">Topology Comparison</h2>
+                <p class="section-desc">
+                    Selecting the right deployment pattern depends on scale requirements, budget constraints, 
+                    and operational complexity tolerance.
+                </p>
+            </div>
+
+            <div class="comparison-table-wrap">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Topology</th>
+                            <th>Scale</th>
+                            <th>Latency</th>
+                            <th>Cost</th>
+                            <th>Complexity</th>
+                            <th>Best For</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="pattern-name">2-Tier Spine-Leaf</span></td>
+                            <td data-tooltip='{"title":"Spine-Leaf Scale","text":"Limited by spine switch port density. Typical 32-64 port spines support 512-2048 servers with oversubscription.","color":"#ff9f0a"}'>Up to 10K nodes</td>
+                            <td data-tooltip='{"title":"Predictable Latency","text":"3-hop maximum (leaf→spine→leaf). Consistent ~500ns for any server-to-server path in the fabric.","color":"#ff9f0a"}'>~500ns</td>
+                            <td data-tooltip='{"title":"Cost Efficiency","text":"Moderate switch cost, lower cabling than mesh. Best TCO for clusters under 5000 nodes.","color":"#ff9f0a"}'>
+                                <div class="rating">
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot"></span>
+                                    <span class="rating-dot"></span>
+                                </div>
+                            </td>
+                            <td data-tooltip='{"title":"Operational Complexity","text":"Well-understood, extensive tooling support. Standard BGP/EVPN configuration. Most network engineers familiar with this topology.","color":"#ff9f0a"}'>
+                                <div class="rating">
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot"></span>
+                                    <span class="rating-dot"></span>
+                                    <span class="rating-dot"></span>
+                                </div>
+                            </td>
+                            <td data-tooltip='{"title":"Ideal Use Cases","text":"Enterprise AI, mid-size training, inference clusters, multi-tenant cloud deployments.","color":"#ff9f0a"}'>Enterprise AI clusters</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pattern-name">3-Tier Clos</span></td>
+                            <td data-tooltip='{"title":"Fat-Tree Scale","text":"Adds super-spine layer for inter-pod connectivity. Can scale to 100K+ nodes with multiple pods.","color":"#ff9f0a"}'>100K+ nodes</td>
+                            <td data-tooltip='{"title":"Additional Hop","text":"5-hop maximum (leaf→spine→super-spine→spine→leaf). ~800ns typical with 400G links.","color":"#ff9f0a"}'>~800ns</td>
+                            <td data-tooltip='{"title":"Higher Cost","text":"Super-spine layer adds significant cost. Justified only at scale where 2-tier cannot physically support node count.","color":"#ff9f0a"}'>
+                                <div class="rating">
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot"></span>
+                                </div>
+                            </td>
+                            <td data-tooltip='{"title":"Increased Complexity","text":"Multi-plane management, complex routing policies. Requires dedicated network engineering team.","color":"#ff9f0a"}'>
+                                <div class="rating">
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot"></span>
+                                    <span class="rating-dot"></span>
+                                </div>
+                            </td>
+                            <td data-tooltip='{"title":"Ideal Use Cases","text":"Hyperscale training, frontier models, multi-datacenter AI platforms.","color":"#ff9f0a"}'>Hyperscale training</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pattern-name">Rail-Optimized</span></td>
+                            <td data-tooltip='{"title":"GPU-Centric Scale","text":"Scales with GPU count per server. 8-way (DGX) to 16-way (custom) common configurations.","color":"#ff9f0a"}'>Any (GPU-focused)</td>
+                            <td data-tooltip='{"title":"Lowest Latency","text":"Eliminates ToR incast by separating rails. ~400ns with dedicated per-rail fabric.","color":"#ff9f0a"}'>~400ns</td>
+                            <td data-tooltip='{"title":"Multiple Fabrics","text":"Requires N separate networks where N = GPU count per server. Higher switch cost but better utilization.","color":"#ff9f0a"}'>
+                                <div class="rating">
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                </div>
+                            </td>
+                            <td data-tooltip='{"title":"Specialized Configuration","text":"Requires understanding of GPU communication patterns. NIC-to-rail mapping must be carefully planned.","color":"#ff9f0a"}'>
+                                <div class="rating">
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot"></span>
+                                </div>
+                            </td>
+                            <td data-tooltip='{"title":"Ideal Use Cases","text":"Large language model training, all-reduce heavy workloads, DGX SuperPOD deployments.","color":"#ff9f0a"}'>LLM training clusters</td>
+                        </tr>
+                        <tr>
+                            <td><span class="pattern-name">Dragonfly+</span></td>
+                            <td data-tooltip='{"title":"Extreme Scale","text":"Designed for exascale HPC. Global links provide high bandwidth between groups with minimal cables.","color":"#ff9f0a"}'>Exascale</td>
+                            <td data-tooltip='{"title":"Variable Latency","text":"~600ns within group, 1-2μs between groups depending on hop count and adaptive routing.","color":"#ff9f0a"}'>~600ns-2μs</td>
+                            <td data-tooltip='{"title":"Cable Efficient","text":"Significantly fewer cables than equivalent Clos at scale. Major cost savings in cabling and optics.","color":"#ff9f0a"}'>
+                                <div class="rating">
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot"></span>
+                                    <span class="rating-dot"></span>
+                                </div>
+                            </td>
+                            <td data-tooltip='{"title":"Advanced Routing Required","text":"Adaptive routing essential for performance. Non-minimal paths require careful traffic engineering.","color":"#ff9f0a"}'>
+                                <div class="rating">
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                    <span class="rating-dot filled"></span>
+                                </div>
+                            </td>
+                            <td data-tooltip='{"title":"Ideal Use Cases","text":"National labs, exascale supercomputers, scientific computing clusters.","color":"#ff9f0a"}'>HPC / Supercomputing</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Best Practices -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Implementation Guide</div>
+                <h2 class="section-title">Deployment Best Practices</h2>
+                <p class="section-desc">
+                    Lessons learned from production AI cluster deployments with DPU-based tenant isolation.
+                </p>
+            </div>
+
+            <div class="practices-grid">
+                <div class="practice-card" data-tooltip='{"title":"Network Planning","text":"Poor network design is the #1 cause of AI cluster performance issues. Plan oversubscription carefully - 1:1 is ideal for training, 2:1 acceptable for inference.","color":"#ff9f0a"}'>
+                    <div class="practice-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                            <path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/>
+                        </svg>
+                    </div>
+                    <h3 class="practice-title">Plan for Full Bisection</h3>
+                    <p class="practice-desc">AI workloads require non-blocking fabrics. Oversubscription kills training performance.</p>
+                    <ul class="practice-bullets">
+                        <li>Use 1:1 oversubscription for training</li>
+                        <li>Calculate worst-case all-reduce bandwidth</li>
+                        <li>Plan spine capacity for N×leaf uplinks</li>
+                        <li>Consider rail-optimized for 8+ GPU/server</li>
+                    </ul>
+                </div>
+
+                <div class="practice-card" data-tooltip='{"title":"DPU Placement Strategy","text":"DPU placement affects both performance and failure domains. Typically 1 DPU per 4-8 GPU servers, never more than 16 servers per DPU for manageability.","color":"#ff9f0a"}'>
+                    <div class="practice-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <rect x="4" y="4" width="16" height="16" rx="2"/>
+                            <path d="M9 9h6v6H9z"/>
+                            <path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>
+                        </svg>
+                    </div>
+                    <h3 class="practice-title">Right-Size DPU Deployment</h3>
+                    <p class="practice-desc">Match DPU count to isolation requirements and traffic patterns.</p>
+                    <ul class="practice-bullets">
+                        <li>1 DPU per 4-8 servers typical</li>
+                        <li>Dual DPU for high-availability</li>
+                        <li>Consider BlueField-4 for >200G/server</li>
+                        <li>Pre-provision 10% spare capacity</li>
+                    </ul>
+                </div>
+
+                <div class="practice-card" data-tooltip='{"title":"Tenant Isolation Design","text":"Design tenant boundaries before deployment. Changing isolation boundaries post-deployment requires flow table rebuilds and potential service interruption.","color":"#ff9f0a"}'>
+                    <div class="practice-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="M12 8v4M12 16h.01"/>
+                        </svg>
+                    </div>
+                    <h3 class="practice-title">Define Isolation Boundaries</h3>
+                    <p class="practice-desc">Establish tenant segmentation strategy before deployment.</p>
+                    <ul class="practice-bullets">
+                        <li>Map tenants to VLAN/VxLAN ranges</li>
+                        <li>Define bandwidth guarantees per tenant</li>
+                        <li>Plan burst allowances and limits</li>
+                        <li>Document emergency override procedures</li>
+                    </ul>
+                </div>
+
+                <div class="practice-card" data-tooltip='{"title":"Observability Infrastructure","text":"You cannot optimize what you cannot measure. Deploy telemetry from day one - retrofitting is extremely difficult.","color":"#ff9f0a"}'>
+                    <div class="practice-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                    </div>
+                    <h3 class="practice-title">Deploy Telemetry First</h3>
+                    <p class="practice-desc">Comprehensive monitoring is prerequisite for optimization.</p>
+                    <ul class="practice-bullets">
+                        <li>Enable DPU hardware counters</li>
+                        <li>Deploy μs-resolution flow telemetry</li>
+                        <li>Set up alerting before production</li>
+                        <li>Baseline performance before tenants</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation -->
+        <nav class="chapter-nav">
+            <a href="chapter-13-doca-sdk.html" class="nav-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Chapter 13: DOCA SDK
+            </a>
+            <a href="index.html" class="home-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                Home
+            </a>
+            <a href="chapter-15-benchmarking.html" class="nav-link">
+                Chapter 15: Benchmarking
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Tooltip Element -->
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+    </div>
+
+    <script>
+        // Tooltip System
+        const tooltip = document.getElementById('tooltip');
+        const tooltipTitle = tooltip.querySelector('.tooltip-title');
+        const tooltipText = tooltip.querySelector('.tooltip-text');
+
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const data = JSON.parse(el.getAttribute('data-tooltip'));
+                tooltipTitle.textContent = data.title;
+                tooltipText.textContent = data.text;
+                tooltip.style.borderColor = data.color;
+                tooltipTitle.style.color = data.color;
+                
+                const rect = el.getBoundingClientRect();
+                const tooltipRect = tooltip.getBoundingClientRect();
+                
+                let left = rect.left + (rect.width / 2) - 160;
+                left = Math.max(10, Math.min(left, window.innerWidth - 330));
+                
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = (rect.top - 10 + window.scrollY) + 'px';
+                tooltip.style.transform = 'translateY(-100%)';
+                
+                tooltip.classList.add('visible');
+            });
+
+            el.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 15: Benchmarking & Validation | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=SF+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #111111;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --accent-pink: #ff375f;
+            --accent-yellow: #ffd60a;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 0%, rgba(48, 209, 88, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(100, 210, 255, 0.08) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .chapter-header {
+            padding: 120px 0 80px;
+            text-align: center;
+        }
+
+        .chapter-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(48, 209, 88, 0.15);
+            border: 1px solid rgba(48, 209, 88, 0.3);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-green);
+            margin-bottom: 24px;
+        }
+
+        .chapter-badge::before {
+            content: '15';
+            background: var(--accent-green);
+            color: #000;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .chapter-title {
+            font-size: clamp(42px, 6vw, 64px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #30d158 0%, #64d2ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .chapter-subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto 48px;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 80px;
+        }
+
+        .stat-card {
+            background: rgba(48, 209, 88, 0.08);
+            border: 1px solid rgba(48, 209, 88, 0.2);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            cursor: help;
+        }
+
+        .stat-card:hover {
+            background: rgba(48, 209, 88, 0.12);
+            border-color: rgba(48, 209, 88, 0.4);
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section {
+            margin-bottom: 80px;
+        }
+
+        .section-header {
+            margin-bottom: 40px;
+        }
+
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-green);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        .section-desc {
+            font-size: 17px;
+            color: var(--text-secondary);
+            max-width: 800px;
+        }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .test-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .test-card:hover {
+            border-color: var(--accent-green);
+            transform: translateY(-4px);
+        }
+
+        .test-icon {
+            width: 56px;
+            height: 56px;
+            background: rgba(48, 209, 88, 0.1);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .test-icon svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--accent-green);
+        }
+
+        .test-name {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .test-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .test-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        .metric-label {
+            color: var(--text-tertiary);
+        }
+
+        .metric-value {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .benchmark-dashboard {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 40px;
+        }
+
+        .dashboard-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--accent-green);
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .chart-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 40px;
+        }
+
+        .chart-panel {
+            background: rgba(48, 209, 88, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .chart-badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            background: rgba(48, 209, 88, 0.2);
+            color: var(--accent-green);
+            border-radius: 100px;
+            font-weight: 600;
+        }
+
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .bar-label {
+            width: 80px;
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-align: right;
+        }
+
+        .bar-container {
+            flex: 1;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease-out;
+        }
+
+        .bar-fill.green { background: linear-gradient(90deg, #30d158, #64d2ff); }
+        .bar-fill.orange { background: linear-gradient(90deg, #ff9f0a, #ffd60a); }
+        .bar-fill.red { background: linear-gradient(90deg, #ff453a, #ff6961); }
+        .bar-fill.purple { background: linear-gradient(90deg, #bf5af2, #da8fff); }
+
+        .bar-value {
+            width: 60px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .latency-chart {
+            height: 200px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .latency-bar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: help;
+        }
+
+        .latency-column {
+            width: 40px;
+            background: linear-gradient(180deg, #30d158, #64d2ff);
+            border-radius: 4px 4px 0 0;
+            transition: all 0.3s ease;
+        }
+
+        .latency-column:hover {
+            filter: brightness(1.2);
+        }
+
+        .latency-label {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        .latency-value {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-green);
+            margin-top: 4px;
+        }
+
+        .methodology-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 32px;
+        }
+
+        .method-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .method-card:hover {
+            border-color: var(--accent-green);
+            transform: translateY(-4px);
+        }
+
+        .method-header {
+            background: rgba(48, 209, 88, 0.1);
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .method-number {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-green);
+            color: #000;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .method-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .method-content {
+            padding: 24px;
+        }
+
+        .method-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .method-steps {
+            list-style: none;
+        }
+
+        .method-steps li {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .method-steps li:last-child {
+            border-bottom: none;
+        }
+
+        .method-steps li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .validation-table-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .validation-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .validation-table th {
+            background: rgba(48, 209, 88, 0.1);
+            padding: 20px 24px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent-green);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .validation-table td {
+            padding: 20px 24px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: help;
+        }
+
+        .validation-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .validation-table tr:hover td {
+            background: rgba(48, 209, 88, 0.05);
+        }
+
+        .test-name-cell {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-badge.pass {
+            background: rgba(48, 209, 88, 0.2);
+            color: var(--accent-green);
+        }
+
+        .status-badge.warn {
+            background: rgba(255, 159, 10, 0.2);
+            color: var(--accent-orange);
+        }
+
+        .status-badge.fail {
+            background: rgba(255, 69, 58, 0.2);
+            color: var(--accent-red);
+        }
+
+        .status-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .certification-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 48px;
+        }
+
+        .cert-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .cert-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .cert-subtitle {
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .cert-levels {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .cert-card {
+            background: rgba(48, 209, 88, 0.05);
+            border: 2px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .cert-card:hover {
+            border-color: var(--accent-green);
+            transform: translateY(-4px);
+        }
+
+        .cert-card.bronze { border-color: #cd7f32; }
+        .cert-card.bronze .cert-level { color: #cd7f32; }
+        .cert-card.silver { border-color: #c0c0c0; }
+        .cert-card.silver .cert-level { color: #c0c0c0; }
+        .cert-card.gold { border-color: #ffd700; }
+        .cert-card.gold .cert-level { color: #ffd700; }
+
+        .cert-icon {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cert-card.bronze .cert-icon { background: rgba(205, 127, 50, 0.2); }
+        .cert-card.silver .cert-icon { background: rgba(192, 192, 192, 0.2); }
+        .cert-card.gold .cert-icon { background: rgba(255, 215, 0, 0.2); }
+
+        .cert-icon svg {
+            width: 36px;
+            height: 36px;
+        }
+
+        .cert-card.bronze .cert-icon svg { stroke: #cd7f32; }
+        .cert-card.silver .cert-icon svg { stroke: #c0c0c0; }
+        .cert-card.gold .cert-icon svg { stroke: #ffd700; }
+
+        .cert-level {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .cert-requirements {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .cert-specs {
+            text-align: left;
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+
+        .cert-specs li {
+            padding: 4px 0;
+            padding-left: 16px;
+            position: relative;
+        }
+
+        .cert-specs li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .tool-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .tool-card:hover {
+            border-color: var(--accent-green);
+            transform: translateY(-4px);
+        }
+
+        .tool-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(48, 209, 88, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .tool-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: var(--accent-green);
+        }
+
+        .tool-name {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .tool-type {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .report-template {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .report-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .report-date {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .report-metric {
+            text-align: center;
+            padding: 20px;
+            background: rgba(48, 209, 88, 0.05);
+            border-radius: 12px;
+            cursor: help;
+        }
+
+        .report-metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin-bottom: 4px;
+        }
+
+        .report-metric-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--accent-green);
+            border-radius: 12px;
+            padding: 16px 20px;
+            max-width: 320px;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.2s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid var(--accent-green);
+        }
+
+        .tooltip-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-green);
+            margin-bottom: 8px;
+        }
+
+        .tooltip-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .chapter-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 48px 0;
+            margin-top: 80px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 15px;
+            transition: color 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--accent-green);
+        }
+
+        .nav-link svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+        }
+
+        .home-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 14px;
+            padding: 12px 24px;
+            background: rgba(48, 209, 88, 0.1);
+            border-radius: 100px;
+            transition: all 0.2s ease;
+        }
+
+        .home-link:hover {
+            background: rgba(48, 209, 88, 0.2);
+            color: var(--accent-green);
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, rgba(48, 209, 88, 0.15) 0%, rgba(100, 210, 255, 0.1) 100%);
+            border: 1px solid rgba(48, 209, 88, 0.3);
+            border-radius: 24px;
+            padding: 48px;
+            text-align: center;
+        }
+
+        .summary-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .summary-text {
+            font-size: 17px;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .test-grid { grid-template-columns: 1fr; }
+            .chart-container { grid-template-columns: 1fr; }
+            .methodology-grid { grid-template-columns: 1fr; }
+            .cert-levels { grid-template-columns: 1fr; }
+            .tools-grid { grid-template-columns: repeat(2, 1fr); }
+            .report-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    
+    <div class="container">
+        <header class="chapter-header">
+            <div class="chapter-badge">Chapter Fifteen</div>
+            <h1 class="chapter-title">Benchmarking & Validation</h1>
+            <p class="chapter-subtitle">
+                Testing methodologies, performance validation frameworks, and certification 
+                processes for verifying wire-speed tenant isolation guarantees.
+            </p>
+        </header>
+
+        <div class="stats-bar">
+            <div class="stat-card" data-tooltip='{"title":"Test Coverage","text":"Comprehensive benchmark suite covering throughput, latency, isolation, and failure scenarios. 47 distinct test cases across all DPU features.","color":"#30d158"}'>
+                <div class="stat-value">47</div>
+                <div class="stat-label">Test Cases</div>
+            </div>
+            <div class="stat-card" data-tooltip='{"title":"Continuous Validation","text":"Production systems run validation tests every 4 hours. Automated alerting on regression detection with 5% threshold.","color":"#30d158"}'>
+                <div class="stat-value">4hr</div>
+                <div class="stat-label">Test Cycle</div>
+            </div>
+            <div class="stat-card" data-tooltip='{"title":"Measurement Resolution","text":"Hardware timestamping provides nanosecond-accurate latency measurements. Essential for detecting μs-level regressions.","color":"#30d158"}'>
+                <div class="stat-value">1ns</div>
+                <div class="stat-label">Resolution</div>
+            </div>
+            <div class="stat-card" data-tooltip='{"title":"Certification Standard","text":"Wire-speed isolation certification requires passing all 47 tests with 99.9% consistency across 1000 iterations.","color":"#30d158"}'>
+                <div class="stat-value">99.9%</div>
+                <div class="stat-label">Pass Threshold</div>
+            </div>
+        </div>
+
+        <!-- Test Categories -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Test Framework</div>
+                <h2 class="section-title">Benchmark Categories</h2>
+                <p class="section-desc">
+                    Wire-speed isolation validation requires testing across multiple dimensions: 
+                    raw performance, isolation guarantees, failure handling, and sustained operation.
+                </p>
+            </div>
+
+            <div class="test-grid">
+                <div class="test-card" data-tooltip='{"title":"Throughput Testing","text":"Measures maximum sustainable packet rate and bandwidth. Tests include unidirectional, bidirectional, and multi-flow scenarios. Critical for validating line-rate claims.","color":"#30d158"}'>
+                    <div class="test-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                    </div>
+                    <h3 class="test-name">Throughput Tests</h3>
+                    <p class="test-desc">Validate line-rate forwarding under various packet sizes and flow configurations.</p>
+                    <div class="test-metrics">
+                        <div class="metric-row">
+                            <span class="metric-label">Max bandwidth</span>
+                            <span class="metric-value">400 Gbps</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Packet rate</span>
+                            <span class="metric-value">595 Mpps</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Min packet</span>
+                            <span class="metric-value">64 bytes</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card" data-tooltip='{"title":"Latency Testing","text":"Measures forwarding delay with hardware timestamps. Includes baseline, loaded, and stress scenarios. Histograms capture tail latency (P99, P99.9).","color":"#30d158"}'>
+                    <div class="test-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <h3 class="test-name">Latency Tests</h3>
+                    <p class="test-desc">Measure forwarding delay distribution from P50 to P99.9 percentiles.</p>
+                    <div class="test-metrics">
+                        <div class="metric-row">
+                            <span class="metric-label">Target P50</span>
+                            <span class="metric-value"><5 μs</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Target P99</span>
+                            <span class="metric-value"><15 μs</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Target P99.9</span>
+                            <span class="metric-value"><50 μs</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card" data-tooltip='{"title":"Isolation Testing","text":"Verifies tenant traffic separation under adversarial conditions. Includes blast radius tests, bandwidth stealing attempts, and policy enforcement validation.","color":"#30d158"}'>
+                    <div class="test-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                    </div>
+                    <h3 class="test-name">Isolation Tests</h3>
+                    <p class="test-desc">Verify tenant separation and prevent cross-tenant interference.</p>
+                    <div class="test-metrics">
+                        <div class="metric-row">
+                            <span class="metric-label">Cross-tenant leak</span>
+                            <span class="metric-value">0 packets</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">BW guarantee</span>
+                            <span class="metric-value">±2%</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Burst isolation</span>
+                            <span class="metric-value">100%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card" data-tooltip='{"title":"Stress Testing","text":"Sustained load testing over extended periods. Detects memory leaks, thermal throttling, and performance degradation. Minimum 24-hour duration.","color":"#30d158"}'>
+                    <div class="test-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M18 20V10M12 20V4M6 20v-6"/>
+                        </svg>
+                    </div>
+                    <h3 class="test-name">Stress Tests</h3>
+                    <p class="test-desc">Extended duration testing to detect degradation and resource leaks.</p>
+                    <div class="test-metrics">
+                        <div class="metric-row">
+                            <span class="metric-label">Duration</span>
+                            <span class="metric-value">24+ hours</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Load level</span>
+                            <span class="metric-value">95%</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Variance allowed</span>
+                            <span class="metric-value"><3%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card" data-tooltip='{"title":"Failure Testing","text":"Validates behavior during component failures. Tests include link flaps, DPU crashes, control plane isolation, and recovery timing.","color":"#30d158"}'>
+                    <div class="test-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </div>
+                    <h3 class="test-name">Failure Tests</h3>
+                    <p class="test-desc">Validate graceful degradation and recovery under failure conditions.</p>
+                    <div class="test-metrics">
+                        <div class="metric-row">
+                            <span class="metric-label">Failover time</span>
+                            <span class="metric-value"><50 ms</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Packet loss</span>
+                            <span class="metric-value"><0.001%</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Recovery</span>
+                            <span class="metric-value">Automatic</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-card" data-tooltip='{"title":"Scale Testing","text":"Validates performance at production scale. Tests flow table capacity, policy rule count, tenant count, and concurrent connections.","color":"#30d158"}'>
+                    <div class="test-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <rect x="2" y="2" width="20" height="20" rx="2"/>
+                            <path d="M7 7h10M7 12h10M7 17h10"/>
+                        </svg>
+                    </div>
+                    <h3 class="test-name">Scale Tests</h3>
+                    <p class="test-desc">Verify performance at maximum flow, rule, and tenant capacity.</p>
+                    <div class="test-metrics">
+                        <div class="metric-row">
+                            <span class="metric-label">Flow entries</span>
+                            <span class="metric-value">16M</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Policy rules</span>
+                            <span class="metric-value">64K</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Tenants</span>
+                            <span class="metric-value">4K</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Benchmark Results -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Performance Data</div>
+                <h2 class="section-title">Benchmark Results Dashboard</h2>
+                <p class="section-desc">
+                    Sample benchmark results from BlueField-3 DPU validation suite. 
+                    Production deployments should establish baseline metrics specific to their configuration.
+                </p>
+            </div>
+
+            <div class="benchmark-dashboard">
+                <div class="dashboard-title">BlueField-3 Performance Validation Results</div>
+                
+                <div class="chart-container">
+                    <div class="chart-panel">
+                        <div class="chart-header">
+                            <span class="chart-title">Throughput by Packet Size</span>
+                            <span class="chart-badge">Line Rate Target</span>
+                        </div>
+                        <div class="bar-chart">
+                            <div class="bar-row">
+                                <span class="bar-label">64B</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill green" style="width: 72%"></div>
+                                </div>
+                                <span class="bar-value">288 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">128B</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill green" style="width: 85%"></div>
+                                </div>
+                                <span class="bar-value">340 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">256B</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill green" style="width: 94%"></div>
+                                </div>
+                                <span class="bar-value">376 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">512B</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill green" style="width: 98%"></div>
+                                </div>
+                                <span class="bar-value">392 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">1518B</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill green" style="width: 100%"></div>
+                                </div>
+                                <span class="bar-value">400 Gbps</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-panel">
+                        <div class="chart-header">
+                            <span class="chart-title">Latency Distribution</span>
+                            <span class="chart-badge">Hardware Offload</span>
+                        </div>
+                        <div class="latency-chart">
+                            <div class="latency-bar" data-tooltip='{"title":"P50 Latency","text":"Median latency with hardware flow offload. 50% of packets see this latency or better.","color":"#30d158"}'>
+                                <div class="latency-column" style="height: 30px"></div>
+                                <span class="latency-label">P50</span>
+                                <span class="latency-value">2.1 μs</span>
+                            </div>
+                            <div class="latency-bar" data-tooltip='{"title":"P90 Latency","text":"90th percentile latency. Occasional cache misses add ~2μs overhead.","color":"#30d158"}'>
+                                <div class="latency-column" style="height: 55px"></div>
+                                <span class="latency-label">P90</span>
+                                <span class="latency-value">4.8 μs</span>
+                            </div>
+                            <div class="latency-bar" data-tooltip='{"title":"P99 Latency","text":"99th percentile latency. Flow table updates cause temporary spikes.","color":"#30d158"}'>
+                                <div class="latency-column" style="height: 95px"></div>
+                                <span class="latency-label">P99</span>
+                                <span class="latency-value">8.2 μs</span>
+                            </div>
+                            <div class="latency-bar" data-tooltip='{"title":"P99.9 Latency","text":"Tail latency during policy updates. ARM fallback path engaged.","color":"#30d158"}'>
+                                <div class="latency-column" style="height: 140px"></div>
+                                <span class="latency-label">P99.9</span>
+                                <span class="latency-value">18.5 μs</span>
+                            </div>
+                            <div class="latency-bar" data-tooltip='{"title":"Max Latency","text":"Worst-case latency during table rebuild. Occurs during major policy changes.","color":"#30d158"}'>
+                                <div class="latency-column" style="height: 180px"></div>
+                                <span class="latency-label">Max</span>
+                                <span class="latency-value">42 μs</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-panel">
+                        <div class="chart-header">
+                            <span class="chart-title">Isolation Effectiveness</span>
+                            <span class="chart-badge">4 Tenants</span>
+                        </div>
+                        <div class="bar-chart">
+                            <div class="bar-row">
+                                <span class="bar-label">Tenant A</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill purple" style="width: 25%"></div>
+                                </div>
+                                <span class="bar-value">100 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">Tenant B</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill purple" style="width: 25%"></div>
+                                </div>
+                                <span class="bar-value">100 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">Tenant C</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill purple" style="width: 25%"></div>
+                                </div>
+                                <span class="bar-value">100 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">Tenant D</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill purple" style="width: 25%"></div>
+                                </div>
+                                <span class="bar-value">100 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">Cross-leak</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill green" style="width: 0%"></div>
+                                </div>
+                                <span class="bar-value">0 pkt</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-panel">
+                        <div class="chart-header">
+                            <span class="chart-title">Scale Performance</span>
+                            <span class="chart-badge">At Capacity</span>
+                        </div>
+                        <div class="bar-chart">
+                            <div class="bar-row">
+                                <span class="bar-label">16M flows</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill green" style="width: 96%"></div>
+                                </div>
+                                <span class="bar-value">384 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">64K rules</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill green" style="width: 92%"></div>
+                                </div>
+                                <span class="bar-value">368 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">4K tenants</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill orange" style="width: 85%"></div>
+                                </div>
+                                <span class="bar-value">340 Gbps</span>
+                            </div>
+                            <div class="bar-row">
+                                <span class="bar-label">10M conns</span>
+                                <div class="bar-container">
+                                    <div class="bar-fill orange" style="width: 78%"></div>
+                                </div>
+                                <span class="bar-value">312 Gbps</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Testing Methodology -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Process</div>
+                <h2 class="section-title">Testing Methodology</h2>
+                <p class="section-desc">
+                    Standardized methodology ensures reproducible results across different 
+                    deployments and enables meaningful comparisons.
+                </p>
+            </div>
+
+            <div class="methodology-grid">
+                <div class="method-card">
+                    <div class="method-header">
+                        <div class="method-number">1</div>
+                        <h3 class="method-title">Environment Setup</h3>
+                    </div>
+                    <div class="method-content">
+                        <p class="method-desc">Prepare isolated test environment with calibrated equipment and controlled variables.</p>
+                        <ul class="method-steps">
+                            <li>Isolate test fabric from production</li>
+                            <li>Calibrate traffic generator timestamps</li>
+                            <li>Verify DPU firmware versions match</li>
+                            <li>Disable power management features</li>
+                            <li>Set ambient temperature to 25°C ±2°</li>
+                            <li>Clear flow tables and counters</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="method-card">
+                    <div class="method-header">
+                        <div class="method-number">2</div>
+                        <h3 class="method-title">Baseline Measurement</h3>
+                    </div>
+                    <div class="method-content">
+                        <p class="method-desc">Establish performance baseline before introducing tenants or complex policies.</p>
+                        <ul class="method-steps">
+                            <li>Run RFC 2544 throughput test</li>
+                            <li>Measure latency histogram (1M samples)</li>
+                            <li>Record CPU and memory utilization</li>
+                            <li>Document hardware counter values</li>
+                            <li>Capture thermal sensor readings</li>
+                            <li>Store baseline for regression analysis</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="method-card">
+                    <div class="method-header">
+                        <div class="method-number">3</div>
+                        <h3 class="method-title">Load Testing</h3>
+                    </div>
+                    <div class="method-content">
+                        <p class="method-desc">Apply production-representative workloads with varying tenant configurations.</p>
+                        <ul class="method-steps">
+                            <li>Configure tenant isolation policies</li>
+                            <li>Ramp traffic to target utilization</li>
+                            <li>Introduce microburst patterns</li>
+                            <li>Measure per-tenant metrics</li>
+                            <li>Validate isolation guarantees</li>
+                            <li>Test policy update latency</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="method-card">
+                    <div class="method-header">
+                        <div class="method-number">4</div>
+                        <h3 class="method-title">Analysis & Reporting</h3>
+                    </div>
+                    <div class="method-content">
+                        <p class="method-desc">Process results, identify anomalies, and generate compliance reports.</p>
+                        <ul class="method-steps">
+                            <li>Calculate statistical summaries</li>
+                            <li>Compare against certification criteria</li>
+                            <li>Identify outliers and root causes</li>
+                            <li>Generate pass/fail report</li>
+                            <li>Document recommendations</li>
+                            <li>Archive raw data for audit</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Validation Results Table -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Compliance</div>
+                <h2 class="section-title">Validation Checklist</h2>
+                <p class="section-desc">
+                    Standard validation tests required for wire-speed isolation certification. 
+                    All tests must pass with 99.9% consistency.
+                </p>
+            </div>
+
+            <div class="validation-table-wrap">
+                <table class="validation-table">
+                    <thead>
+                        <tr>
+                            <th>Test Case</th>
+                            <th>Requirement</th>
+                            <th>Measured</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="test-name-cell">Line-rate forwarding (1518B)</span></td>
+                            <td data-tooltip='{"title":"Line Rate Definition","text":"400 Gbps with zero packet loss sustained for 60 seconds minimum.","color":"#30d158"}'>≥400 Gbps, 0% loss</td>
+                            <td data-tooltip='{"title":"Measured Result","text":"Sustained 400 Gbps for 300 seconds with hardware counters showing zero drops.","color":"#30d158"}'>400 Gbps, 0% loss</td>
+                            <td><span class="status-badge pass">Pass</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="test-name-cell">Line-rate forwarding (64B)</span></td>
+                            <td data-tooltip='{"title":"Small Packet Challenge","text":"64B packets at 400G requires 595M pps. DPU must process at wire speed.","color":"#30d158"}'>≥595 Mpps, 0% loss</td>
+                            <td data-tooltip='{"title":"Measured Result","text":"Achieved 428M pps with hardware offload. ARM fallback limits small packet rate.","color":"#ff9f0a"}'>428 Mpps, 0% loss</td>
+                            <td><span class="status-badge warn">Warn</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="test-name-cell">P99 latency (offloaded)</span></td>
+                            <td data-tooltip='{"title":"Latency Target","text":"99th percentile latency under 15μs for flows in hardware fast path.","color":"#30d158"}'>≤15 μs</td>
+                            <td data-tooltip='{"title":"Measured Result","text":"P99 latency of 8.2μs with all flows offloaded to eSwitch.","color":"#30d158"}'>8.2 μs</td>
+                            <td><span class="status-badge pass">Pass</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="test-name-cell">Tenant isolation (4 tenants)</span></td>
+                            <td data-tooltip='{"title":"Isolation Requirement","text":"Zero cross-tenant packet leakage and bandwidth within ±5% of allocation.","color":"#30d158"}'>0 leak, ±5% BW</td>
+                            <td data-tooltip='{"title":"Measured Result","text":"Zero packets leaked between tenants. Bandwidth deviation under 2%.","color":"#30d158"}'>0 leak, ±1.8% BW</td>
+                            <td><span class="status-badge pass">Pass</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="test-name-cell">Microburst handling</span></td>
+                            <td data-tooltip='{"title":"Burst Tolerance","text":"Must absorb 100μs bursts at 2× line rate without triggering ARM fallback.","color":"#30d158"}'>100μs @ 2×, no fallback</td>
+                            <td data-tooltip='{"title":"Measured Result","text":"Bursts up to 80μs handled cleanly. 100μs bursts trigger occasional fallback.","color":"#ff9f0a"}'>80μs @ 2×, rare fallback</td>
+                            <td><span class="status-badge warn">Warn</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="test-name-cell">Failover time</span></td>
+                            <td data-tooltip='{"title":"HA Requirement","text":"Traffic switchover to standby DPU must complete within 50ms.","color":"#30d158"}'>≤50 ms</td>
+                            <td data-tooltip='{"title":"Measured Result","text":"BFD detection + ECMP rehash completed in 35ms average.","color":"#30d158"}'>35 ms avg</td>
+                            <td><span class="status-badge pass">Pass</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="test-name-cell">24-hour stress test</span></td>
+                            <td data-tooltip='{"title":"Endurance Requirement","text":"Sustained 85% load for 24 hours with less than 3% performance variance.","color":"#30d158"}'>≤3% variance @ 85%</td>
+                            <td data-tooltip='{"title":"Measured Result","text":"1.7% variance observed. No memory leaks or thermal throttling.","color":"#30d158"}'>1.7% variance</td>
+                            <td><span class="status-badge pass">Pass</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="test-name-cell">Policy update latency</span></td>
+                            <td data-tooltip='{"title":"Control Plane Target","text":"New flow rules must be active within 100ms of API call.","color":"#30d158"}'>≤100 ms</td>
+                            <td data-tooltip='{"title":"Measured Result","text":"Median policy propagation of 45ms. P99 at 120ms during table rebuild.","color":"#ff9f0a"}'>45ms P50, 120ms P99</td>
+                            <td><span class="status-badge warn">Warn</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Certification Levels -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Standards</div>
+                <h2 class="section-title">Certification Levels</h2>
+                <p class="section-desc">
+                    Wire-speed isolation certification provides tiered validation levels 
+                    based on test coverage and performance thresholds.
+                </p>
+            </div>
+
+            <div class="certification-section">
+                <div class="cert-header">
+                    <h3 class="cert-title">Wire-Speed Isolation Certification</h3>
+                    <p class="cert-subtitle">Validation framework for DPU-based tenant isolation deployments</p>
+                </div>
+
+                <div class="cert-levels">
+                    <div class="cert-card bronze" data-tooltip='{"title":"Bronze Certification","text":"Entry-level certification for development and testing environments. Validates basic functionality without performance guarantees.","color":"#cd7f32"}'>
+                        <div class="cert-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                <path d="M12 15l-2 5h4l-2-5zM8 9a4 4 0 1 1 8 0 4 4 0 0 1-8 0z"/>
+                            </svg>
+                        </div>
+                        <div class="cert-level">Bronze</div>
+                        <p class="cert-requirements">Basic Functionality</p>
+                        <ul class="cert-specs">
+                            <li>≥80% line-rate throughput</li>
+                            <li>P99 latency ≤50μs</li>
+                            <li>Zero cross-tenant leaks</li>
+                            <li>1-hour stress test pass</li>
+                            <li>Manual failover tested</li>
+                        </ul>
+                    </div>
+
+                    <div class="cert-card silver" data-tooltip='{"title":"Silver Certification","text":"Production-grade certification for standard enterprise deployments. Suitable for multi-tenant environments with SLA requirements.","color":"#c0c0c0"}'>
+                        <div class="cert-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                <path d="M12 15l-2 5h4l-2-5zM8 9a4 4 0 1 1 8 0 4 4 0 0 1-8 0z"/>
+                            </svg>
+                        </div>
+                        <div class="cert-level">Silver</div>
+                        <p class="cert-requirements">Production Ready</p>
+                        <ul class="cert-specs">
+                            <li>≥95% line-rate throughput</li>
+                            <li>P99 latency ≤20μs</li>
+                            <li>BW guarantee ±5%</li>
+                            <li>24-hour stress test pass</li>
+                            <li>Automatic failover ≤100ms</li>
+                        </ul>
+                    </div>
+
+                    <div class="cert-card gold" data-tooltip='{"title":"Gold Certification","text":"Premium certification for mission-critical AI infrastructure. Required for hyperscale deployments with strict SLA commitments.","color":"#ffd700"}'>
+                        <div class="cert-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                                <path d="M12 15l-2 5h4l-2-5zM8 9a4 4 0 1 1 8 0 4 4 0 0 1-8 0z"/>
+                            </svg>
+                        </div>
+                        <div class="cert-level">Gold</div>
+                        <p class="cert-requirements">Mission Critical</p>
+                        <ul class="cert-specs">
+                            <li>100% line-rate throughput</li>
+                            <li>P99 latency ≤10μs</li>
+                            <li>BW guarantee ±2%</li>
+                            <li>72-hour stress test pass</li>
+                            <li>Automatic failover ≤50ms</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tools -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Tooling</div>
+                <h2 class="section-title">Benchmarking Tools</h2>
+                <p class="section-desc">
+                    Industry-standard tools for DPU performance validation and isolation testing.
+                </p>
+            </div>
+
+            <div class="tools-grid">
+                <div class="tool-card" data-tooltip='{"title":"DPDK Pktgen","text":"High-performance traffic generator using DPDK. Capable of line-rate packet generation with precise timing. Essential for throughput and latency testing.","color":"#30d158"}'>
+                    <div class="tool-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                    </div>
+                    <h4 class="tool-name">DPDK Pktgen</h4>
+                    <span class="tool-type">Traffic Generator</span>
+                </div>
+
+                <div class="tool-card" data-tooltip='{"title":"TRex","text":"Cisco open-source traffic generator with stateful and stateless modes. Supports realistic application traffic patterns and programmable packet crafting.","color":"#30d158"}'>
+                    <div class="tool-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M18 20V10M12 20V4M6 20v-6"/>
+                        </svg>
+                    </div>
+                    <h4 class="tool-name">TRex</h4>
+                    <span class="tool-type">Traffic Generator</span>
+                </div>
+
+                <div class="tool-card" data-tooltip='{"title":"Moongen","text":"Scriptable packet generator using Lua. Hardware timestamping support for sub-microsecond latency measurements. Ideal for research workloads.","color":"#30d158"}'>
+                    <div class="tool-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <h4 class="tool-name">Moongen</h4>
+                    <span class="tool-type">Latency Testing</span>
+                </div>
+
+                <div class="tool-card" data-tooltip='{"title":"iperf3","text":"Standard bandwidth measurement tool. Useful for quick validation but lacks precision for μs-level testing. Good for smoke tests.","color":"#30d158"}'>
+                    <div class="tool-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <rect x="2" y="2" width="20" height="20" rx="2"/>
+                            <path d="M7 12h10"/>
+                        </svg>
+                    </div>
+                    <h4 class="tool-name">iperf3</h4>
+                    <span class="tool-type">Bandwidth Test</span>
+                </div>
+
+                <div class="tool-card" data-tooltip='{"title":"DOCA Telemetry","text":"NVIDIA DOCA framework for collecting hardware counters and flow statistics. Essential for DPU-specific metrics not visible to external tools.","color":"#30d158"}'>
+                    <div class="tool-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <rect x="4" y="4" width="16" height="16" rx="2"/>
+                            <path d="M9 9h6v6H9z"/>
+                        </svg>
+                    </div>
+                    <h4 class="tool-name">DOCA Telemetry</h4>
+                    <span class="tool-type">DPU Metrics</span>
+                </div>
+
+                <div class="tool-card" data-tooltip='{"title":"Grafana","text":"Visualization platform for benchmark dashboards. Integrates with Prometheus for real-time metrics during test runs.","color":"#30d158"}'>
+                    <div class="tool-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M3 3v18h18"/>
+                            <path d="M7 12l4-4 4 4 4-4"/>
+                        </svg>
+                    </div>
+                    <h4 class="tool-name">Grafana</h4>
+                    <span class="tool-type">Visualization</span>
+                </div>
+
+                <div class="tool-card" data-tooltip='{"title":"Prometheus","text":"Time-series database for collecting benchmark metrics. Enables historical comparison and regression detection.","color":"#30d158"}'>
+                    <div class="tool-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <h4 class="tool-name">Prometheus</h4>
+                    <span class="tool-type">Metrics DB</span>
+                </div>
+
+                <div class="tool-card" data-tooltip='{"title":"Pytest","text":"Python testing framework for automation. Custom fixtures enable repeatable benchmark execution with automated pass/fail evaluation.","color":"#30d158"}'>
+                    <div class="tool-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <path d="M14 2v6h6M9 15l2 2 4-4"/>
+                        </svg>
+                    </div>
+                    <h4 class="tool-name">Pytest</h4>
+                    <span class="tool-type">Automation</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sample Report -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Output</div>
+                <h2 class="section-title">Validation Report Example</h2>
+                <p class="section-desc">
+                    Sample output from automated validation pipeline showing key metrics and certification status.
+                </p>
+            </div>
+
+            <div class="report-template">
+                <div class="report-header">
+                    <h3 class="report-title">Wire-Speed Isolation Validation Report</h3>
+                    <span class="report-date">Generated: January 14, 2026</span>
+                </div>
+
+                <div class="report-grid">
+                    <div class="report-metric" data-tooltip='{"title":"Overall Score","text":"Weighted average of all test categories. Score above 95% qualifies for Gold certification.","color":"#30d158"}'>
+                        <div class="report-metric-value">94.2%</div>
+                        <div class="report-metric-label">Overall Score</div>
+                    </div>
+                    <div class="report-metric" data-tooltip='{"title":"Tests Passed","text":"Number of test cases passing all criteria out of total 47 test cases in suite.","color":"#30d158"}'>
+                        <div class="report-metric-value">44/47</div>
+                        <div class="report-metric-label">Tests Passed</div>
+                    </div>
+                    <div class="report-metric" data-tooltip='{"title":"Certification Level","text":"Based on current results, deployment qualifies for Silver certification. 3 tests need improvement for Gold.","color":"#30d158"}'>
+                        <div class="report-metric-value">Silver</div>
+                        <div class="report-metric-label">Certification</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Summary -->
+        <section class="section">
+            <div class="summary-card">
+                <h2 class="summary-title">Key Takeaways</h2>
+                <p class="summary-text">
+                    Rigorous benchmarking and validation are essential for production wire-speed isolation. 
+                    Establish baselines before deployment, test continuously in production, and use 
+                    hardware timestamps for accurate microsecond-level measurements. Certification 
+                    provides objective proof of isolation guarantees for compliance and SLA commitments.
+                </p>
+            </div>
+        </section>
+
+        <!-- Navigation -->
+        <nav class="chapter-nav">
+            <a href="chapter-14-deployment-patterns.html" class="nav-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Chapter 14: Deployment Patterns
+            </a>
+            <a href="index.html" class="home-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                Home
+            </a>
+            <span class="nav-link" style="opacity: 0.3; cursor: default;">
+                Final Chapter
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </span>
+        </nav>
+    </div>
+
+    <!-- Tooltip Element -->
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+    </div>
+
+    <script>
+        // Tooltip System
+        const tooltip = document.getElementById('tooltip');
+        const tooltipTitle = tooltip.querySelector('.tooltip-title');
+        const tooltipText = tooltip.querySelector('.tooltip-text');
+
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const data = JSON.parse(el.getAttribute('data-tooltip'));
+                tooltipTitle.textContent = data.title;
+                tooltipText.textContent = data.text;
+                tooltip.style.borderColor = data.color;
+                tooltipTitle.style.color = data.color;
+                
+                // Update arrow color
+                tooltip.style.setProperty('--arrow-color', data.color);
+                
+                const rect = el.getBoundingClientRect();
+                
+                let left = rect.left + (rect.width / 2) - 160;
+                left = Math.max(10, Math.min(left, window.innerWidth - 330));
+                
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = (rect.top - 10 + window.scrollY) + 'px';
+                tooltip.style.transform = 'translateY(-100%)';
+                
+                tooltip.classList.add('visible');
+            });
+
+            el.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+
+        // Animate bars on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.querySelectorAll('.bar-fill').forEach(bar => {
+                        const width = bar.style.width;
+                        bar.style.width = '0%';
+                        setTimeout(() => {
+                            bar.style.width = width;
+                        }, 100);
+                    });
+                }
+            });
+        }, { threshold: 0.2 });
+
+        document.querySelectorAll('.chart-panel').forEach(panel => {
+            observer.observe(panel);
+        });
+    </script>
+</body>
+</html>

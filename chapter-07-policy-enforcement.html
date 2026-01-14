@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 7: Policy Enforcement | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #141414;
+            --bg-card-hover: #1c1c1c;
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --accent-teal: #5ac8fa;
+            --accent-pink: #ff375f;
+            --accent-yellow: #ffd60a;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; height: 64px;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 1000; display: flex; align-items: center; padding: 0 24px;
+        }
+        
+        .nav-back {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--accent-blue); text-decoration: none;
+            font-size: 14px; font-weight: 500;
+        }
+        .nav-back:hover { opacity: 0.7; }
+        .nav-back svg { width: 20px; height: 20px; }
+        
+        .nav-title {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            font-size: 14px; font-weight: 600; color: var(--text-secondary);
+        }
+        
+        .hero {
+            padding: 140px 24px 80px; max-width: 900px; margin: 0 auto;
+        }
+        
+        .chapter-badge {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, rgba(48,209,88,0.2), rgba(100,210,255,0.2));
+            border: 1px solid rgba(48,209,88,0.3);
+            padding: 10px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600; color: var(--accent-green);
+            margin-bottom: 24px;
+        }
+        
+        .chapter-badge span:first-child {
+            background: var(--accent-green); color: black;
+            padding: 4px 10px; border-radius: 100px; font-size: 12px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px); font-weight: 700;
+            letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 24px;
+        }
+        
+        .hero-desc {
+            font-size: 20px; color: var(--text-secondary); max-width: 700px;
+        }
+        
+        .content {
+            max-width: 900px; margin: 0 auto; padding: 0 24px 120px;
+        }
+        
+        .section { margin-bottom: 80px; }
+        
+        .section-label {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--accent-green); margin-bottom: 12px;
+        }
+        
+        .section h2 {
+            font-size: 32px; font-weight: 700;
+            letter-spacing: -0.02em; margin-bottom: 20px;
+        }
+        
+        .section p {
+            color: var(--text-secondary); font-size: 17px; margin-bottom: 24px;
+        }
+        
+        /* Policy Pipeline Diagram */
+        .pipeline-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .pipeline-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .pipeline-flow {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            overflow-x: auto;
+            padding: 20px 0;
+        }
+        
+        .pipeline-stage {
+            flex: 1;
+            min-width: 140px;
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .pipeline-stage:hover {
+            transform: translateY(-4px);
+            z-index: 10;
+        }
+        
+        .pipeline-stage.ingress { border-color: var(--accent-cyan); }
+        .pipeline-stage.classify { border-color: var(--accent-blue); }
+        .pipeline-stage.policy { border-color: var(--accent-green); }
+        .pipeline-stage.qos { border-color: var(--accent-yellow); }
+        .pipeline-stage.egress { border-color: var(--accent-purple); }
+        
+        .pipeline-stage .icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .pipeline-stage.ingress .icon { background: linear-gradient(135deg, rgba(100,210,255,0.2), rgba(90,200,250,0.2)); }
+        .pipeline-stage.classify .icon { background: linear-gradient(135deg, rgba(0,113,227,0.2), rgba(100,210,255,0.2)); }
+        .pipeline-stage.policy .icon { background: linear-gradient(135deg, rgba(48,209,88,0.2), rgba(100,210,255,0.2)); }
+        .pipeline-stage.qos .icon { background: linear-gradient(135deg, rgba(255,214,10,0.2), rgba(255,159,10,0.2)); }
+        .pipeline-stage.egress .icon { background: linear-gradient(135deg, rgba(191,90,242,0.2), rgba(255,55,95,0.2)); }
+        
+        .pipeline-stage h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .pipeline-stage .time {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .pipeline-stage.ingress .time { color: var(--accent-cyan); }
+        .pipeline-stage.classify .time { color: var(--accent-blue); }
+        .pipeline-stage.policy .time { color: var(--accent-green); }
+        .pipeline-stage.qos .time { color: var(--accent-yellow); }
+        .pipeline-stage.egress .time { color: var(--accent-purple); }
+        
+        .pipeline-stage .desc {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+        
+        .pipeline-arrow {
+            display: flex;
+            align-items: center;
+            padding: 0 4px;
+            color: var(--text-tertiary);
+            font-size: 20px;
+        }
+        
+        /* Hardware vs Software Comparison */
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .comparison-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 32px;
+            border: 1px solid var(--border-subtle);
+            transition: all 0.3s ease;
+        }
+        
+        .comparison-card:hover {
+            transform: translateY(-4px);
+        }
+        
+        .comparison-card.software {
+            border-top: 4px solid var(--accent-blue);
+        }
+        
+        .comparison-card.hardware {
+            border-top: 4px solid var(--accent-green);
+        }
+        
+        .comparison-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .comparison-card h3 span {
+            font-size: 24px;
+        }
+        
+        .comparison-list {
+            list-style: none;
+        }
+        
+        .comparison-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: help;
+        }
+        
+        .comparison-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .comparison-list .metric {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .comparison-list .value {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 8px;
+        }
+        
+        .comparison-card.software .value {
+            background: rgba(0,113,227,0.15);
+            color: var(--accent-blue);
+        }
+        
+        .comparison-card.hardware .value {
+            background: rgba(48,209,88,0.15);
+            color: var(--accent-green);
+        }
+        
+        /* Flow Classification Diagram */
+        .classify-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .classify-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+        
+        .flow-diagram {
+            position: relative;
+        }
+        
+        .packet-input {
+            background: linear-gradient(145deg, #0f1a20, #0a1015);
+            border: 2px solid var(--accent-cyan);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+        
+        .packet-input::before {
+            content: 'INCOMING PACKET';
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            background: var(--accent-cyan);
+            color: black;
+            padding: 2px 12px;
+            border-radius: 100px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        
+        .packet-fields {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+        }
+        
+        .packet-field {
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            padding: 10px 8px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        
+        .packet-field:hover {
+            border-color: var(--accent-cyan);
+        }
+        
+        .packet-field .label {
+            font-size: 9px;
+            color: var(--text-tertiary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        
+        .packet-field .value {
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'SF Mono', Monaco, monospace;
+            color: var(--accent-cyan);
+        }
+        
+        .classify-tree {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .classify-node {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr 1fr;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .classify-box {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-subtle);
+        }
+        
+        .classify-box:hover {
+            border-color: var(--accent-green);
+        }
+        
+        .classify-box .check {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-bottom: 8px;
+        }
+        
+        .classify-box .result {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .classify-arrow {
+            color: var(--text-tertiary);
+            font-size: 18px;
+            text-align: center;
+        }
+        
+        /* QoS Classes */
+        .qos-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .qos-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+        
+        .qos-classes {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+        
+        .qos-class {
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .qos-class::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+        
+        .qos-class.critical {
+            background: linear-gradient(180deg, rgba(255,69,58,0.15), rgba(255,69,58,0.05));
+            border: 1px solid rgba(255,69,58,0.3);
+        }
+        .qos-class.critical::before { background: var(--accent-red); }
+        
+        .qos-class.high {
+            background: linear-gradient(180deg, rgba(255,159,10,0.15), rgba(255,159,10,0.05));
+            border: 1px solid rgba(255,159,10,0.3);
+        }
+        .qos-class.high::before { background: var(--accent-orange); }
+        
+        .qos-class.normal {
+            background: linear-gradient(180deg, rgba(48,209,88,0.15), rgba(48,209,88,0.05));
+            border: 1px solid rgba(48,209,88,0.3);
+        }
+        .qos-class.normal::before { background: var(--accent-green); }
+        
+        .qos-class.background {
+            background: linear-gradient(180deg, rgba(100,210,255,0.15), rgba(100,210,255,0.05));
+            border: 1px solid rgba(100,210,255,0.3);
+        }
+        .qos-class.background::before { background: var(--accent-cyan); }
+        
+        .qos-class:hover {
+            transform: translateY(-4px);
+        }
+        
+        .qos-class .priority {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        
+        .qos-class.critical .priority { color: var(--accent-red); }
+        .qos-class.high .priority { color: var(--accent-orange); }
+        .qos-class.normal .priority { color: var(--accent-green); }
+        .qos-class.background .priority { color: var(--accent-cyan); }
+        
+        .qos-class h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .qos-class .use-case {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+        
+        .qos-class .bandwidth {
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 12px;
+            padding: 6px 12px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            display: inline-block;
+        }
+        
+        /* Policy Decision Tree */
+        .decision-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .decision-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .decision-tree {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .decision-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .decision-node {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px 24px;
+            text-align: center;
+            border: 2px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+            min-width: 160px;
+        }
+        
+        .decision-node:hover {
+            transform: scale(1.05);
+        }
+        
+        .decision-node.question {
+            border-color: var(--accent-yellow);
+            background: linear-gradient(180deg, rgba(255,214,10,0.1), transparent);
+        }
+        
+        .decision-node.action-allow {
+            border-color: var(--accent-green);
+            background: linear-gradient(180deg, rgba(48,209,88,0.1), transparent);
+        }
+        
+        .decision-node.action-deny {
+            border-color: var(--accent-red);
+            background: linear-gradient(180deg, rgba(255,69,58,0.1), transparent);
+        }
+        
+        .decision-node.action-shape {
+            border-color: var(--accent-orange);
+            background: linear-gradient(180deg, rgba(255,159,10,0.1), transparent);
+        }
+        
+        .decision-node .icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .decision-node .label {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .decision-connector {
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 12px;
+        }
+        
+        .decision-connector .yes { color: var(--accent-green); }
+        .decision-connector .no { color: var(--accent-red); }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            border-color: var(--accent-green);
+        }
+        
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin-bottom: 4px;
+        }
+        
+        .stat-card .label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+        
+        /* Navigation Footer */
+        .chapter-nav {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 24px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            text-decoration: none;
+            padding: 16px 24px;
+            border-radius: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            transition: all 0.3s ease;
+            max-width: 280px;
+        }
+        
+        .nav-link:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+        
+        .nav-link .direction {
+            font-size: 12px;
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+        
+        .nav-link .title {
+            font-size: 15px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        /* Tooltip System */
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--accent-green);
+            border-radius: 12px;
+            padding: 16px;
+            max-width: 320px;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+        
+        .tooltip.visible { opacity: 1; }
+        
+        .tooltip-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin-bottom: 6px;
+        }
+        
+        .tooltip-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid var(--accent-green);
+        }
+        
+        @media (max-width: 768px) {
+            .comparison-container, .qos-classes, .stats-grid { grid-template-columns: 1fr; }
+            .pipeline-flow { flex-direction: column; }
+            .pipeline-arrow { transform: rotate(90deg); }
+            .packet-fields { grid-template-columns: repeat(3, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html" class="nav-back">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to Overview
+        </a>
+        <span class="nav-title">Wire-Speed Tenant Isolation</span>
+    </nav>
+    
+    <header class="hero">
+        <div class="chapter-badge">
+            <span>07</span>
+            <span>Policy Enforcement</span>
+        </div>
+        <h1>Policy at Wire Speed</h1>
+        <p class="hero-desc">How DPUs enforce isolation policies, classify traffic, and make per-packet decisions in nanoseconds—the heart of tenant security.</p>
+    </header>
+    
+    <main class="content">
+        <!-- Key Stats -->
+        <div class="stats-grid">
+            <div class="stat-card" data-tooltip="stat-decisions">
+                <div class="value">595M</div>
+                <div class="label">Decisions/Second</div>
+            </div>
+            <div class="stat-card" data-tooltip="stat-latency">
+                <div class="value">1.7ns</div>
+                <div class="label">Per Decision</div>
+            </div>
+            <div class="stat-card" data-tooltip="stat-rules">
+                <div class="value">1M+</div>
+                <div class="label">Policy Rules</div>
+            </div>
+            <div class="stat-card" data-tooltip="stat-accuracy">
+                <div class="value">100%</div>
+                <div class="label">Enforcement</div>
+            </div>
+        </div>
+        
+        <!-- Section: Policy Pipeline -->
+        <section class="section">
+            <div class="section-label">The Pipeline</div>
+            <h2>Policy Enforcement Pipeline</h2>
+            <p>Every packet traverses a multi-stage pipeline where each stage makes critical decisions. The entire pipeline must complete in under 10 microseconds to maintain wire speed.</p>
+            
+            <div class="pipeline-container">
+                <h3>📊 Packet Processing Pipeline</h3>
+                <div class="pipeline-flow">
+                    <div class="pipeline-stage ingress" data-tooltip="stage-ingress">
+                        <div class="icon">📥</div>
+                        <h4>Ingress</h4>
+                        <div class="time">&lt;1µs</div>
+                        <div class="desc">Receive & Buffer</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage classify" data-tooltip="stage-classify">
+                        <div class="icon">🏷️</div>
+                        <h4>Classify</h4>
+                        <div class="time">1-2µs</div>
+                        <div class="desc">Parse & Match</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage policy" data-tooltip="stage-policy">
+                        <div class="icon">📋</div>
+                        <h4>Policy</h4>
+                        <div class="time">2-5µs</div>
+                        <div class="desc">Rules Engine</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage qos" data-tooltip="stage-qos">
+                        <div class="icon">⚖️</div>
+                        <h4>QoS</h4>
+                        <div class="time">1-2µs</div>
+                        <div class="desc">Queue & Shape</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage egress" data-tooltip="stage-egress">
+                        <div class="icon">📤</div>
+                        <h4>Egress</h4>
+                        <div class="time">&lt;1µs</div>
+                        <div class="desc">Transmit</div>
+                    </div>
+                </div>
+                <p style="text-align: center; font-size: 13px; color: var(--text-tertiary); margin-top: 20px;">
+                    Total Pipeline Latency: <strong style="color: var(--accent-green);">5-10µs</strong> (Hardware) vs <strong style="color: var(--accent-blue);">50-500µs</strong> (Software)
+                </p>
+            </div>
+        </section>
+        
+        <!-- Section: Hardware vs Software -->
+        <section class="section">
+            <div class="section-label">The Comparison</div>
+            <h2>Hardware vs Software Policy</h2>
+            <p>Software-based policy enforcement cannot scale to AI workloads. Only dedicated hardware can make 595 million decisions per second with deterministic latency.</p>
+            
+            <div class="comparison-container">
+                <div class="comparison-card software">
+                    <h3><span>💻</span> Software (CPU)</h3>
+                    <ul class="comparison-list">
+                        <li data-tooltip="sw-latency">
+                            <span class="metric">Latency</span>
+                            <span class="value">50-500µs</span>
+                        </li>
+                        <li data-tooltip="sw-throughput">
+                            <span class="metric">Throughput</span>
+                            <span class="value">1-10 Mpps</span>
+                        </li>
+                        <li data-tooltip="sw-jitter">
+                            <span class="metric">Jitter</span>
+                            <span class="value">High</span>
+                        </li>
+                        <li data-tooltip="sw-cpu">
+                            <span class="metric">CPU Usage</span>
+                            <span class="value">100%</span>
+                        </li>
+                        <li data-tooltip="sw-bypass">
+                            <span class="metric">Bypass Risk</span>
+                            <span class="value">Possible</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="comparison-card hardware">
+                    <h3><span>🔧</span> Hardware (DPU)</h3>
+                    <ul class="comparison-list">
+                        <li data-tooltip="hw-latency">
+                            <span class="metric">Latency</span>
+                            <span class="value">5-10µs</span>
+                        </li>
+                        <li data-tooltip="hw-throughput">
+                            <span class="metric">Throughput</span>
+                            <span class="value">595 Mpps</span>
+                        </li>
+                        <li data-tooltip="hw-jitter">
+                            <span class="metric">Jitter</span>
+                            <span class="value">Minimal</span>
+                        </li>
+                        <li data-tooltip="hw-cpu">
+                            <span class="metric">CPU Usage</span>
+                            <span class="value">0%</span>
+                        </li>
+                        <li data-tooltip="hw-bypass">
+                            <span class="metric">Bypass Risk</span>
+                            <span class="value">None</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Section: Flow Classification -->
+        <section class="section">
+            <div class="section-label">The Classifier</div>
+            <h2>Flow Classification</h2>
+            <p>The DPU extracts multiple fields from each packet and matches against classification rules to determine tenant identity, priority, and applicable policies.</p>
+            
+            <div class="classify-container">
+                <h3>🔍 Packet Field Extraction</h3>
+                <div class="flow-diagram">
+                    <div class="packet-input">
+                        <div class="packet-fields">
+                            <div class="packet-field" data-tooltip="field-vlan">
+                                <div class="label">VLAN</div>
+                                <div class="value">100</div>
+                            </div>
+                            <div class="packet-field" data-tooltip="field-src-mac">
+                                <div class="label">Src MAC</div>
+                                <div class="value">aa:bb:cc:*</div>
+                            </div>
+                            <div class="packet-field" data-tooltip="field-dst-mac">
+                                <div class="label">Dst MAC</div>
+                                <div class="value">ff:ff:ff:*</div>
+                            </div>
+                            <div class="packet-field" data-tooltip="field-src-ip">
+                                <div class="label">Src IP</div>
+                                <div class="value">10.0.1.50</div>
+                            </div>
+                            <div class="packet-field" data-tooltip="field-proto">
+                                <div class="label">Protocol</div>
+                                <div class="value">RDMA</div>
+                            </div>
+                            <div class="packet-field" data-tooltip="field-qp">
+                                <div class="label">QP</div>
+                                <div class="value">0x1234</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Section: QoS Classes -->
+        <section class="section">
+            <div class="section-label">Quality of Service</div>
+            <h2>Traffic Priority Classes</h2>
+            <p>DPUs assign traffic to priority queues based on classification results. Higher priority traffic gets guaranteed bandwidth and lower latency.</p>
+            
+            <div class="qos-container">
+                <h3>🎯 Priority Queue Hierarchy</h3>
+                <div class="qos-classes">
+                    <div class="qos-class critical" data-tooltip="qos-critical">
+                        <div class="priority">P0</div>
+                        <h4>Critical</h4>
+                        <div class="use-case">Control Plane / Heartbeat</div>
+                        <div class="bandwidth">100% Guarantee</div>
+                    </div>
+                    <div class="qos-class high" data-tooltip="qos-high">
+                        <div class="priority">P1</div>
+                        <h4>High</h4>
+                        <div class="use-case">GPU Gradient Sync</div>
+                        <div class="bandwidth">Min 60%</div>
+                    </div>
+                    <div class="qos-class normal" data-tooltip="qos-normal">
+                        <div class="priority">P2</div>
+                        <h4>Normal</h4>
+                        <div class="use-case">Storage I/O</div>
+                        <div class="bandwidth">Min 20%</div>
+                    </div>
+                    <div class="qos-class background" data-tooltip="qos-background">
+                        <div class="priority">P3</div>
+                        <h4>Background</h4>
+                        <div class="use-case">Checkpoints / Logs</div>
+                        <div class="bandwidth">Best Effort</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Section: Decision Tree -->
+        <section class="section">
+            <div class="section-label">The Logic</div>
+            <h2>Policy Decision Flow</h2>
+            <p>Each packet goes through a decision tree that determines its fate. Actions include: allow, deny, rate-limit, or redirect—all in hardware.</p>
+            
+            <div class="decision-container">
+                <h3>⚙️ Decision Tree</h3>
+                <div class="decision-tree">
+                    <div class="decision-row">
+                        <div class="decision-node question" data-tooltip="decision-valid">
+                            <div class="icon">❓</div>
+                            <div class="label">Valid Tenant?</div>
+                        </div>
+                    </div>
+                    <div class="decision-connector">
+                        <span class="yes">↙ YES</span> &nbsp;&nbsp;&nbsp;&nbsp; <span class="no">NO ↘</span>
+                    </div>
+                    <div class="decision-row">
+                        <div class="decision-node question" data-tooltip="decision-quota">
+                            <div class="icon">❓</div>
+                            <div class="label">Within Quota?</div>
+                        </div>
+                        <div class="decision-node action-deny" data-tooltip="action-deny">
+                            <div class="icon">🚫</div>
+                            <div class="label">DROP</div>
+                        </div>
+                    </div>
+                    <div class="decision-connector">
+                        <span class="yes">↙ YES</span> &nbsp;&nbsp;&nbsp;&nbsp; <span class="no">NO ↘</span>
+                    </div>
+                    <div class="decision-row">
+                        <div class="decision-node action-allow" data-tooltip="action-allow">
+                            <div class="icon">✅</div>
+                            <div class="label">FORWARD</div>
+                        </div>
+                        <div class="decision-node action-shape" data-tooltip="action-shape">
+                            <div class="icon">⏳</div>
+                            <div class="label">RATE LIMIT</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="chapter-nav">
+        <a href="chapter-06-microbursts-ai-traffic.html" class="nav-link">
+            <span class="direction">← Previous</span>
+            <span class="title">Microbursts & AI Traffic</span>
+        </a>
+        <a href="chapter-08-performance-analysis.html" class="nav-link">
+            <span class="direction">Next →</span>
+            <span class="title">Performance Analysis</span>
+        </a>
+    </footer>
+    
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+    </div>
+    
+    <script>
+        const tooltips = {
+            'stat-decisions': { title: 'Decisions Per Second', text: 'At 400 Gbps with 64-byte packets, the DPU must make 595 million policy decisions every second.' },
+            'stat-latency': { title: 'Decision Time Budget', text: 'With 1.7 nanoseconds per packet, there is no time for software—hardware must make every decision.' },
+            'stat-rules': { title: 'Policy Rules Supported', text: 'Modern DPUs can hold 1M+ flow rules in hardware, enabling complex multi-tenant policies.' },
+            'stat-accuracy': { title: 'Enforcement Guarantee', text: 'Hardware policy cannot be bypassed. Every packet is checked, no exceptions.' },
+            'stage-ingress': { title: 'Ingress Stage', text: 'Receives packets from the network interface, validates checksums, and buffers for processing. <1µs.' },
+            'stage-classify': { title: 'Classification Stage', text: 'Parses packet headers (L2-L4), extracts flow keys, and matches against classification rules. 1-2µs.' },
+            'stage-policy': { title: 'Policy Stage', text: 'Applies security rules, ACLs, and tenant isolation policies. Makes allow/deny/rate-limit decisions. 2-5µs.' },
+            'stage-qos': { title: 'QoS Stage', text: 'Assigns packets to priority queues, applies traffic shaping, and manages bandwidth allocation. 1-2µs.' },
+            'stage-egress': { title: 'Egress Stage', text: 'Selects output queue, modifies headers if needed, and transmits to destination port. <1µs.' },
+            'sw-latency': { title: 'Software Latency', text: 'CPU interrupt handling, context switches, and memory copies add 50-500µs of variable latency.' },
+            'sw-throughput': { title: 'Software Throughput', text: 'Even optimized DPDK can only achieve 1-10 million packets per second per core.' },
+            'sw-jitter': { title: 'Software Jitter', text: 'Variable latency due to cache misses, interrupts, and scheduler preemption. Unpredictable.' },
+            'sw-cpu': { title: 'Software CPU Usage', text: 'Packet processing consumes 100% of dedicated cores, leaving none for applications.' },
+            'sw-bypass': { title: 'Software Bypass Risk', text: 'Kernel bugs, misconfigurations, or privilege escalation can bypass software enforcement.' },
+            'hw-latency': { title: 'Hardware Latency', text: 'Fixed pipeline stages with deterministic timing. Always 5-10µs regardless of load.' },
+            'hw-throughput': { title: 'Hardware Throughput', text: 'Full 400 Gbps line rate with all packets processed. No drops under load.' },
+            'hw-jitter': { title: 'Hardware Jitter', text: 'Fixed pipeline depth means consistent latency. Microsecond-level predictability.' },
+            'hw-cpu': { title: 'Hardware CPU Usage', text: 'Offloads all packet processing. Host CPU available for applications.' },
+            'hw-bypass': { title: 'Hardware Bypass', text: 'Physically impossible to bypass—all traffic must traverse the DPU pipeline.' },
+            'field-vlan': { title: 'VLAN Tag', text: 'Virtual LAN ID used for tenant network segmentation. 12-bit field (0-4095).' },
+            'field-src-mac': { title: 'Source MAC Address', text: 'Hardware address of sending interface. Used to identify source tenant.' },
+            'field-dst-mac': { title: 'Destination MAC', text: 'Hardware address of destination. Determines forwarding path.' },
+            'field-src-ip': { title: 'Source IP Address', text: 'Layer 3 source identifier. Combined with VLAN for tenant identification.' },
+            'field-proto': { title: 'Protocol Type', text: 'Transport protocol (TCP, UDP, RDMA). Determines header parsing depth.' },
+            'field-qp': { title: 'Queue Pair (QP)', text: 'RDMA-specific identifier for connection tracking. Critical for GPU traffic.' },
+            'qos-critical': { title: 'Critical Priority (P0)', text: 'Reserved for control plane traffic, health checks, and cluster coordination. Never dropped.' },
+            'qos-high': { title: 'High Priority (P1)', text: 'GPU gradient synchronization and collective operations. Minimum 60% bandwidth guarantee.' },
+            'qos-normal': { title: 'Normal Priority (P2)', text: 'Storage I/O, model loading, and checkpoint writes. Minimum 20% bandwidth guarantee.' },
+            'qos-background': { title: 'Background Priority (P3)', text: 'Logging, telemetry, and non-critical data. Best-effort, may be dropped under congestion.' },
+            'decision-valid': { title: 'Tenant Validation', text: 'Checks packet headers against known tenant identifiers (VLAN, MAC, IP range).' },
+            'decision-quota': { title: 'Quota Check', text: 'Verifies tenant has not exceeded allocated bandwidth or packet rate limits.' },
+            'action-allow': { title: 'Forward Action', text: 'Packet passes all checks—forwarded to destination with appropriate QoS marking.' },
+            'action-deny': { title: 'Drop Action', text: 'Packet fails validation—silently dropped with optional logging/counter increment.' },
+            'action-shape': { title: 'Rate Limit Action', text: 'Tenant over quota—packet queued with delay or marked for later drop if congestion persists.' }
+        };
+        
+        const tooltip = document.getElementById('tooltip');
+        const tooltipTitle = tooltip.querySelector('.tooltip-title');
+        const tooltipText = tooltip.querySelector('.tooltip-text');
+        
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const data = tooltips[el.dataset.tooltip];
+                if (!data) return;
+                
+                tooltipTitle.textContent = data.title;
+                tooltipText.textContent = data.text;
+                
+                const rect = el.getBoundingClientRect();
+                tooltip.style.left = rect.left + rect.width/2 - tooltip.offsetWidth/2 + 'px';
+                tooltip.style.top = rect.top - tooltip.offsetHeight - 12 + 'px';
+                
+                if (parseFloat(tooltip.style.left) < 10) tooltip.style.left = '10px';
+                if (parseFloat(tooltip.style.left) + tooltip.offsetWidth > window.innerWidth - 10) {
+                    tooltip.style.left = (window.innerWidth - tooltip.offsetWidth - 10) + 'px';
+                }
+                
+                tooltip.classList.add('visible');
+            });
+            
+            el.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>

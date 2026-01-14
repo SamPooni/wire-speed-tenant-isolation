@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 4: Understanding DPUs | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #141414;
+            --bg-card-hover: #1c1c1c;
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --accent-teal: #5ac8fa;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; height: 64px;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 1000; display: flex; align-items: center; padding: 0 24px;
+        }
+        
+        .nav-back {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--accent-blue); text-decoration: none;
+            font-size: 14px; font-weight: 500;
+        }
+        .nav-back:hover { opacity: 0.7; }
+        .nav-back svg { width: 20px; height: 20px; }
+        
+        .nav-title {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            font-size: 14px; font-weight: 600; color: var(--text-secondary);
+        }
+        
+        .hero {
+            padding: 140px 24px 80px; max-width: 900px; margin: 0 auto;
+        }
+        
+        .chapter-badge {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, rgba(0,113,227,0.2), rgba(100,210,255,0.2));
+            border: 1px solid rgba(0,113,227,0.3);
+            padding: 10px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600; color: var(--accent-blue);
+            margin-bottom: 24px;
+        }
+        
+        .chapter-badge span:first-child {
+            background: var(--accent-blue); color: white;
+            padding: 4px 10px; border-radius: 100px; font-size: 12px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px); font-weight: 700;
+            letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 24px;
+        }
+        
+        .hero-desc {
+            font-size: 20px; color: var(--text-secondary); max-width: 700px;
+        }
+        
+        .content {
+            max-width: 900px; margin: 0 auto; padding: 0 24px 120px;
+        }
+        
+        .section { margin-bottom: 80px; }
+        
+        .section-label {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--accent-blue); margin-bottom: 12px;
+        }
+        
+        .section h2 {
+            font-size: 32px; font-weight: 700;
+            letter-spacing: -0.02em; margin-bottom: 20px;
+        }
+        
+        .section p {
+            color: var(--text-secondary); font-size: 17px; margin-bottom: 24px;
+        }
+        
+        /* DPU Architecture Diagram */
+        .dpu-architecture {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .dpu-chip {
+            background: linear-gradient(145deg, #1a1a2e, #0f0f1a);
+            border-radius: 20px;
+            padding: 32px;
+            border: 2px solid var(--accent-blue);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .dpu-chip::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan), var(--accent-blue));
+            animation: shimmer 3s infinite;
+        }
+        
+        @keyframes shimmer {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        
+        .dpu-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 32px; padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .dpu-logo {
+            display: flex; align-items: center; gap: 12px;
+        }
+        
+        .dpu-logo-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 20px; color: white;
+        }
+        
+        .dpu-logo-text {
+            font-size: 24px; font-weight: 700;
+            background: linear-gradient(135deg, var(--text-primary), var(--accent-cyan));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        
+        .dpu-model {
+            font-size: 14px; color: var(--accent-cyan);
+            background: rgba(100,210,255,0.1);
+            padding: 8px 16px; border-radius: 100px;
+            border: 1px solid rgba(100,210,255,0.3);
+        }
+        
+        .dpu-components {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .dpu-component {
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .dpu-component:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-blue);
+            background: rgba(0,113,227,0.1);
+        }
+        
+        .dpu-component.highlight-cpu { border-left: 3px solid var(--accent-green); }
+        .dpu-component.highlight-network { border-left: 3px solid var(--accent-purple); }
+        .dpu-component.highlight-memory { border-left: 3px solid var(--accent-orange); }
+        .dpu-component.highlight-security { border-left: 3px solid var(--accent-red); }
+        .dpu-component.highlight-accel { border-left: 3px solid var(--accent-cyan); }
+        .dpu-component.highlight-storage { border-left: 3px solid var(--accent-teal); }
+        
+        .component-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; margin-bottom: 12px;
+        }
+        
+        .component-icon.cpu { background: rgba(48,209,88,0.2); color: var(--accent-green); }
+        .component-icon.network { background: rgba(191,90,242,0.2); color: var(--accent-purple); }
+        .component-icon.memory { background: rgba(255,159,10,0.2); color: var(--accent-orange); }
+        .component-icon.security { background: rgba(255,69,58,0.2); color: var(--accent-red); }
+        .component-icon.accel { background: rgba(100,210,255,0.2); color: var(--accent-cyan); }
+        .component-icon.storage { background: rgba(90,200,250,0.2); color: var(--accent-teal); }
+        
+        .component-label {
+            font-size: 11px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--text-tertiary); margin-bottom: 4px;
+        }
+        
+        .component-name {
+            font-size: 16px; font-weight: 600; margin-bottom: 8px;
+        }
+        
+        .component-spec {
+            font-size: 13px; color: var(--text-secondary);
+        }
+        
+        /* Data Flow Visualization */
+        .data-flow-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .flow-node {
+            flex: 1;
+            min-width: 140px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .flow-node:hover {
+            transform: scale(1.02);
+            border-color: var(--accent-blue);
+        }
+        
+        .flow-node.host { border-top: 3px solid var(--accent-green); }
+        .flow-node.ingress { border-top: 3px solid var(--accent-purple); }
+        .flow-node.process { border-top: 3px solid var(--accent-blue); }
+        .flow-node.egress { border-top: 3px solid var(--accent-orange); }
+        .flow-node.network { border-top: 3px solid var(--accent-cyan); }
+        
+        .flow-icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; margin: 0 auto 12px;
+        }
+        
+        .flow-icon.host-icon { background: rgba(48,209,88,0.2); }
+        .flow-icon.ingress-icon { background: rgba(191,90,242,0.2); }
+        .flow-icon.process-icon { background: rgba(0,113,227,0.2); }
+        .flow-icon.egress-icon { background: rgba(255,159,10,0.2); }
+        .flow-icon.network-icon { background: rgba(100,210,255,0.2); }
+        
+        .flow-label {
+            font-size: 14px; font-weight: 600; margin-bottom: 4px;
+        }
+        
+        .flow-desc {
+            font-size: 12px; color: var(--text-secondary);
+        }
+        
+        .flow-arrow {
+            color: var(--accent-blue);
+            font-size: 24px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; transform: translateX(0); }
+            50% { opacity: 1; transform: translateX(4px); }
+        }
+        
+        /* Comparison Diagram: CPU vs DPU */
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison-container { grid-template-columns: 1fr; }
+        }
+        
+        .comparison-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 32px;
+            border: 1px solid var(--border-subtle);
+        }
+        
+        .comparison-card.cpu-card { border-top: 4px solid var(--accent-red); }
+        .comparison-card.dpu-card { border-top: 4px solid var(--accent-green); }
+        
+        .comparison-header {
+            display: flex; align-items: center; gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .comparison-icon {
+            width: 56px; height: 56px;
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px;
+        }
+        
+        .comparison-icon.cpu { background: rgba(255,69,58,0.2); }
+        .comparison-icon.dpu { background: rgba(48,209,88,0.2); }
+        
+        .comparison-title {
+            font-size: 20px; font-weight: 700;
+        }
+        
+        .comparison-subtitle {
+            font-size: 13px; color: var(--text-secondary);
+        }
+        
+        .comparison-metrics {
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        
+        .metric-row {
+            display: flex; justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            cursor: help;
+        }
+        
+        .metric-label {
+            font-size: 14px; color: var(--text-secondary);
+        }
+        
+        .metric-value {
+            font-size: 16px; font-weight: 600;
+        }
+        
+        .metric-value.bad { color: var(--accent-red); }
+        .metric-value.good { color: var(--accent-green); }
+        
+        /* Processing Pipeline */
+        .pipeline-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .pipeline-title {
+            font-size: 18px; font-weight: 600;
+            margin-bottom: 24px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        
+        .pipeline-title::before {
+            content: '';
+            width: 4px; height: 24px;
+            background: var(--accent-blue);
+            border-radius: 2px;
+        }
+        
+        .pipeline-stages {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .pipeline-stage {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .pipeline-stage:hover {
+            border-color: var(--accent-blue);
+            transform: translateX(8px);
+        }
+        
+        .stage-number {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            background: var(--accent-blue);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 700; color: white;
+            flex-shrink: 0;
+        }
+        
+        .stage-content {
+            flex: 1;
+        }
+        
+        .stage-name {
+            font-size: 16px; font-weight: 600; margin-bottom: 4px;
+        }
+        
+        .stage-desc {
+            font-size: 13px; color: var(--text-secondary);
+        }
+        
+        .stage-timing {
+            background: rgba(0,113,227,0.1);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 13px; font-weight: 600;
+            color: var(--accent-cyan);
+            white-space: nowrap;
+        }
+        
+        /* Key Benefits Grid */
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        
+        @media (max-width: 600px) {
+            .benefits-grid { grid-template-columns: 1fr; }
+        }
+        
+        .benefit-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 28px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .benefit-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 12px 40px rgba(0,113,227,0.15);
+        }
+        
+        .benefit-icon {
+            width: 52px; height: 52px;
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; margin-bottom: 16px;
+            background: rgba(0,113,227,0.15);
+        }
+        
+        .benefit-title {
+            font-size: 18px; font-weight: 600; margin-bottom: 8px;
+        }
+        
+        .benefit-desc {
+            font-size: 14px; color: var(--text-secondary); line-height: 1.6;
+        }
+        
+        /* Footer Navigation */
+        .chapter-nav {
+            display: flex; justify-content: space-between;
+            padding: 40px 0;
+            border-top: 1px solid var(--border-subtle);
+            margin-top: 60px;
+        }
+        
+        .nav-link {
+            display: flex; flex-direction: column; gap: 4px;
+            text-decoration: none; padding: 16px 24px;
+            border-radius: 16px; transition: all 0.3s ease;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            max-width: 280px;
+        }
+        
+        .nav-link:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+        
+        .nav-link-label {
+            font-size: 12px; color: var(--text-tertiary);
+            text-transform: uppercase; letter-spacing: 0.1em;
+        }
+        
+        .nav-link-title {
+            font-size: 16px; font-weight: 600; color: var(--text-primary);
+        }
+        
+        .nav-link.next { text-align: right; margin-left: auto; }
+        
+        /* Tooltip System */
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--accent-blue);
+            border-radius: 12px;
+            padding: 16px 20px;
+            max-width: 320px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.2s ease;
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .tooltip-title {
+            font-size: 14px; font-weight: 600; margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .tooltip-text {
+            font-size: 13px; color: var(--text-secondary); line-height: 1.5;
+        }
+        
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: var(--accent-blue);
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html" class="nav-back">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            All Chapters
+        </a>
+        <div class="nav-title">Wire-Speed Tenant Isolation</div>
+    </nav>
+
+    <header class="hero">
+        <div class="chapter-badge">
+            <span>04</span>
+            <span>Core Technology</span>
+        </div>
+        <h1>Understanding DPUs</h1>
+        <p class="hero-desc">Data Processing Units are specialized processors that offload networking, storage, and security tasks from CPUs—enabling wire-speed processing at the infrastructure layer.</p>
+    </header>
+
+    <main class="content">
+        <!-- What is a DPU Section -->
+        <section class="section">
+            <div class="section-label">The Concept</div>
+            <h2>What is a Data Processing Unit?</h2>
+            <p>A DPU is a new class of programmable processor that combines three key elements: a high-performance CPU, a high-throughput network interface, and a rich set of flexible accelerators. Think of it as a "smart NIC" on steroids—purpose-built to handle infrastructure tasks that would otherwise burden your main processors.</p>
+            
+            <div class="dpu-architecture">
+                <div class="dpu-chip">
+                    <div class="dpu-header">
+                        <div class="dpu-logo">
+                            <div class="dpu-logo-icon">BF</div>
+                            <div class="dpu-logo-text">BlueField DPU</div>
+                        </div>
+                        <div class="dpu-model">NVIDIA BlueField-3</div>
+                    </div>
+                    
+                    <div class="dpu-components">
+                        <div class="dpu-component highlight-cpu" data-tooltip="arm-cores">
+                            <div class="component-icon cpu">⚡</div>
+                            <div class="component-label">Processing</div>
+                            <div class="component-name">ARM Cores</div>
+                            <div class="component-spec">16× A78 @ 3.0 GHz</div>
+                        </div>
+                        
+                        <div class="dpu-component highlight-network" data-tooltip="network-engine">
+                            <div class="component-icon network">🌐</div>
+                            <div class="component-label">Connectivity</div>
+                            <div class="component-name">Network Engine</div>
+                            <div class="component-spec">400 Gbps ConnectX-7</div>
+                        </div>
+                        
+                        <div class="dpu-component highlight-memory" data-tooltip="memory-subsystem">
+                            <div class="component-icon memory">📦</div>
+                            <div class="component-label">Memory</div>
+                            <div class="component-name">DDR5 + HBM</div>
+                            <div class="component-spec">32GB + 16GB HBM</div>
+                        </div>
+                        
+                        <div class="dpu-component highlight-security" data-tooltip="security-engine">
+                            <div class="component-icon security">🔒</div>
+                            <div class="component-label">Security</div>
+                            <div class="component-name">Crypto Engine</div>
+                            <div class="component-spec">IPsec/TLS @ 400G</div>
+                        </div>
+                        
+                        <div class="dpu-component highlight-accel" data-tooltip="accelerators">
+                            <div class="component-icon accel">🚀</div>
+                            <div class="component-label">Acceleration</div>
+                            <div class="component-name">Custom ASICs</div>
+                            <div class="component-spec">RegEx, Compress, ML</div>
+                        </div>
+                        
+                        <div class="dpu-component highlight-storage" data-tooltip="storage-engine">
+                            <div class="component-icon storage">💾</div>
+                            <div class="component-label">Storage</div>
+                            <div class="component-name">NVMe/VIRTIO</div>
+                            <div class="component-spec">SNAP + virtio-blk</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Data Flow Section -->
+        <section class="section">
+            <div class="section-label">How It Works</div>
+            <h2>Data Flow Through a DPU</h2>
+            <p>When a network packet arrives, the DPU intercepts it before it reaches the host CPU. The packet is processed, classified, encrypted/decrypted, and forwarded—all without consuming host CPU cycles.</p>
+            
+            <div class="data-flow-container">
+                <div class="flow-diagram">
+                    <div class="flow-node network" data-tooltip="flow-network">
+                        <div class="flow-icon network-icon">🌐</div>
+                        <div class="flow-label">Network</div>
+                        <div class="flow-desc">400G Ethernet</div>
+                    </div>
+                    
+                    <div class="flow-arrow">→</div>
+                    
+                    <div class="flow-node ingress" data-tooltip="flow-ingress">
+                        <div class="flow-icon ingress-icon">📥</div>
+                        <div class="flow-label">Ingress</div>
+                        <div class="flow-desc">Packet Receive</div>
+                    </div>
+                    
+                    <div class="flow-arrow">→</div>
+                    
+                    <div class="flow-node process" data-tooltip="flow-process">
+                        <div class="flow-icon process-icon">⚙️</div>
+                        <div class="flow-label">Process</div>
+                        <div class="flow-desc">DPU Pipeline</div>
+                    </div>
+                    
+                    <div class="flow-arrow">→</div>
+                    
+                    <div class="flow-node egress" data-tooltip="flow-egress">
+                        <div class="flow-icon egress-icon">📤</div>
+                        <div class="flow-label">Egress</div>
+                        <div class="flow-desc">Packet Send</div>
+                    </div>
+                    
+                    <div class="flow-arrow">→</div>
+                    
+                    <div class="flow-node host" data-tooltip="flow-host">
+                        <div class="flow-icon host-icon">🖥️</div>
+                        <div class="flow-label">Host CPU</div>
+                        <div class="flow-desc">Only App Data</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- CPU vs DPU Comparison -->
+        <section class="section">
+            <div class="section-label">Why DPUs Matter</div>
+            <h2>CPU vs DPU Processing</h2>
+            <p>Traditional networking runs on the host CPU, competing with applications for cycles. DPUs offload this work entirely, providing predictable performance and freeing the CPU for revenue-generating workloads.</p>
+            
+            <div class="comparison-container">
+                <div class="comparison-card cpu-card">
+                    <div class="comparison-header">
+                        <div class="comparison-icon cpu">🔴</div>
+                        <div>
+                            <div class="comparison-title">CPU Processing</div>
+                            <div class="comparison-subtitle">Software-based networking</div>
+                        </div>
+                    </div>
+                    <div class="comparison-metrics">
+                        <div class="metric-row" data-tooltip="cpu-latency">
+                            <span class="metric-label">Latency</span>
+                            <span class="metric-value bad">50-200 μs</span>
+                        </div>
+                        <div class="metric-row" data-tooltip="cpu-throughput">
+                            <span class="metric-label">Throughput</span>
+                            <span class="metric-value bad">~50 Gbps max</span>
+                        </div>
+                        <div class="metric-row" data-tooltip="cpu-overhead">
+                            <span class="metric-label">CPU Overhead</span>
+                            <span class="metric-value bad">30-40%</span>
+                        </div>
+                        <div class="metric-row" data-tooltip="cpu-jitter">
+                            <span class="metric-label">Latency Jitter</span>
+                            <span class="metric-value bad">High variance</span>
+                        </div>
+                        <div class="metric-row" data-tooltip="cpu-isolation">
+                            <span class="metric-label">Isolation</span>
+                            <span class="metric-value bad">Bypassable</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-card dpu-card">
+                    <div class="comparison-header">
+                        <div class="comparison-icon dpu">🟢</div>
+                        <div>
+                            <div class="comparison-title">DPU Processing</div>
+                            <div class="comparison-subtitle">Hardware-accelerated</div>
+                        </div>
+                    </div>
+                    <div class="comparison-metrics">
+                        <div class="metric-row" data-tooltip="dpu-latency">
+                            <span class="metric-label">Latency</span>
+                            <span class="metric-value good">&lt;5 μs</span>
+                        </div>
+                        <div class="metric-row" data-tooltip="dpu-throughput">
+                            <span class="metric-label">Throughput</span>
+                            <span class="metric-value good">400 Gbps</span>
+                        </div>
+                        <div class="metric-row" data-tooltip="dpu-overhead">
+                            <span class="metric-label">CPU Overhead</span>
+                            <span class="metric-value good">~0%</span>
+                        </div>
+                        <div class="metric-row" data-tooltip="dpu-jitter">
+                            <span class="metric-label">Latency Jitter</span>
+                            <span class="metric-value good">Sub-μs variance</span>
+                        </div>
+                        <div class="metric-row" data-tooltip="dpu-isolation">
+                            <span class="metric-label">Isolation</span>
+                            <span class="metric-value good">Hardware-enforced</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- DPU Processing Pipeline -->
+        <section class="section">
+            <div class="section-label">Deep Dive</div>
+            <h2>The DPU Processing Pipeline</h2>
+            <p>Inside the DPU, packets flow through a series of specialized engines. Each stage is hardware-optimized for specific tasks, enabling wire-speed processing with deterministic latency.</p>
+            
+            <div class="pipeline-container">
+                <div class="pipeline-title">Packet Processing Stages</div>
+                <div class="pipeline-stages">
+                    <div class="pipeline-stage" data-tooltip="stage-parse">
+                        <div class="stage-number">1</div>
+                        <div class="stage-content">
+                            <div class="stage-name">Header Parsing</div>
+                            <div class="stage-desc">Extract L2/L3/L4 headers, identify protocol type, prepare metadata</div>
+                        </div>
+                        <div class="stage-timing">&lt;100 ns</div>
+                    </div>
+                    
+                    <div class="pipeline-stage" data-tooltip="stage-match">
+                        <div class="stage-number">2</div>
+                        <div class="stage-content">
+                            <div class="stage-name">Flow Matching</div>
+                            <div class="stage-desc">TCAM-based lookup against flow tables, identify tenant and policy</div>
+                        </div>
+                        <div class="stage-timing">&lt;200 ns</div>
+                    </div>
+                    
+                    <div class="pipeline-stage" data-tooltip="stage-action">
+                        <div class="stage-number">3</div>
+                        <div class="stage-content">
+                            <div class="stage-name">Action Execution</div>
+                            <div class="stage-desc">Apply transformations: NAT, VXLAN encap/decap, ACL filtering</div>
+                        </div>
+                        <div class="stage-timing">&lt;300 ns</div>
+                    </div>
+                    
+                    <div class="pipeline-stage" data-tooltip="stage-crypto">
+                        <div class="stage-number">4</div>
+                        <div class="stage-content">
+                            <div class="stage-name">Crypto Processing</div>
+                            <div class="stage-desc">IPsec/TLS encryption or decryption at full line rate</div>
+                        </div>
+                        <div class="stage-timing">&lt;500 ns</div>
+                    </div>
+                    
+                    <div class="pipeline-stage" data-tooltip="stage-qos">
+                        <div class="stage-number">5</div>
+                        <div class="stage-content">
+                            <div class="stage-name">QoS & Scheduling</div>
+                            <div class="stage-desc">Traffic shaping, priority queuing, rate limiting per tenant</div>
+                        </div>
+                        <div class="stage-timing">&lt;200 ns</div>
+                    </div>
+                    
+                    <div class="pipeline-stage" data-tooltip="stage-forward">
+                        <div class="stage-number">6</div>
+                        <div class="stage-content">
+                            <div class="stage-name">Forwarding Decision</div>
+                            <div class="stage-desc">Determine output port, apply final transformations, transmit</div>
+                        </div>
+                        <div class="stage-timing">&lt;100 ns</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Key Benefits -->
+        <section class="section">
+            <div class="section-label">Advantages</div>
+            <h2>Key Benefits of DPU Architecture</h2>
+            <p>DPUs fundamentally change how infrastructure services are delivered, providing security, performance, and efficiency improvements that weren't possible before.</p>
+            
+            <div class="benefits-grid">
+                <div class="benefit-card" data-tooltip="benefit-offload">
+                    <div class="benefit-icon">🎯</div>
+                    <div class="benefit-title">Complete Offload</div>
+                    <div class="benefit-desc">Networking, storage, and security run on the DPU. Host CPU is 100% available for applications.</div>
+                </div>
+                
+                <div class="benefit-card" data-tooltip="benefit-isolation">
+                    <div class="benefit-icon">🛡️</div>
+                    <div class="benefit-title">Hardware Isolation</div>
+                    <div class="benefit-desc">Tenant boundaries enforced in silicon. No software vulnerabilities can bypass controls.</div>
+                </div>
+                
+                <div class="benefit-card" data-tooltip="benefit-performance">
+                    <div class="benefit-icon">⚡</div>
+                    <div class="benefit-title">Predictable Performance</div>
+                    <div class="benefit-desc">Deterministic latency with sub-microsecond jitter. Perfect for latency-sensitive AI workloads.</div>
+                </div>
+                
+                <div class="benefit-card" data-tooltip="benefit-scale">
+                    <div class="benefit-icon">📈</div>
+                    <div class="benefit-title">Linear Scaling</div>
+                    <div class="benefit-desc">Each DPU handles its own traffic. Adding servers adds proportional network capacity.</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Chapter Navigation -->
+        <nav class="chapter-nav">
+            <a href="chapter-03-wire-speed.html" class="nav-link prev">
+                <span class="nav-link-label">Previous</span>
+                <span class="nav-link-title">← The Wire Speed Challenge</span>
+            </a>
+            <a href="chapter-05-bluefield-architecture.html" class="nav-link next">
+                <span class="nav-link-label">Next</span>
+                <span class="nav-link-title">BlueField Architecture →</span>
+            </a>
+        </nav>
+    </main>
+
+    <!-- Tooltip Element -->
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+    </div>
+
+    <script>
+        const tooltipData = {
+            // DPU Components
+            'arm-cores': {
+                title: 'ARM Cortex-A78 Cores',
+                text: '16 high-performance ARM cores running at 3.0 GHz. These handle complex control plane operations, programmable packet processing, and run the DPU\'s operating system (typically Ubuntu-based DOCA OS).'
+            },
+            'network-engine': {
+                title: 'ConnectX-7 Network Engine',
+                text: 'NVIDIA\'s 7th generation network adapter technology. Supports 400 Gbps Ethernet with RDMA, RoCE v2, and GPUDirect capabilities. Handles millions of packets per second in hardware.'
+            },
+            'memory-subsystem': {
+                title: 'Hybrid Memory System',
+                text: '32GB DDR5 for general operations plus 16GB High Bandwidth Memory (HBM) for packet buffers. HBM provides 1+ TB/s bandwidth for zero-copy packet processing.'
+            },
+            'security-engine': {
+                title: 'Hardware Crypto Accelerators',
+                text: 'Dedicated silicon for IPsec and TLS at 400 Gbps line rate. Supports AES-GCM-256, SHA-384, and RSA-4096. Encryption adds zero latency to packet processing.'
+            },
+            'accelerators': {
+                title: 'Programmable Accelerators',
+                text: 'Custom ASICs for specific tasks: RegEx for deep packet inspection (400 Gbps), compression for storage (zlib/LZ4), and ML inference for traffic classification.'
+            },
+            'storage-engine': {
+                title: 'Storage Virtualization',
+                text: 'SNAP (Software-defined Network Accelerated Processing) provides NVMe virtualization. Presents virtual block devices to VMs while handling I/O in hardware.'
+            },
+            
+            // Data Flow
+            'flow-network': {
+                title: 'Network Interface',
+                text: '400 Gbps Ethernet ports connect to the datacenter fabric. Each port can handle ~600 million packets per second at minimum packet sizes.'
+            },
+            'flow-ingress': {
+                title: 'Ingress Processing',
+                text: 'Packets arrive via PCIe or network ports. The DPU parses headers, applies initial classification, and stores packets in HBM for pipeline processing.'
+            },
+            'flow-process': {
+                title: 'DPU Processing Pipeline',
+                text: 'Six-stage hardware pipeline: parse → match → action → crypto → QoS → forward. Each stage executes in parallel on different packets (pipeline parallelism).'
+            },
+            'flow-egress': {
+                title: 'Egress Processing',
+                text: 'After pipeline processing, packets are scheduled for transmission. QoS policies ensure fairness between tenants and traffic classes.'
+            },
+            'flow-host': {
+                title: 'Host CPU',
+                text: 'The host only receives application-level data. All infrastructure processing (encapsulation, encryption, ACLs) is complete before packets reach the host.'
+            },
+            
+            // CPU Metrics
+            'cpu-latency': {
+                title: 'Software Processing Latency',
+                text: '50-200μs typical for software-based networking. Includes kernel interrupt handling, context switches, memory copies, and lock contention. Highly variable under load.'
+            },
+            'cpu-throughput': {
+                title: 'CPU Throughput Limits',
+                text: 'A modern CPU core can process ~10-15 Gbps of network traffic. Reaching 50 Gbps requires 4-5 dedicated cores plus significant memory bandwidth.'
+            },
+            'cpu-overhead': {
+                title: 'CPU Overhead',
+                text: '30-40% of server CPU capacity consumed by networking in hyperscale environments. This represents significant cost: those cores could run revenue-generating workloads.'
+            },
+            'cpu-jitter': {
+                title: 'Latency Variance',
+                text: 'Software processing latency varies dramatically based on CPU load, cache state, and interrupt coalescing. Jitter can exceed 100μs under heavy load.'
+            },
+            'cpu-isolation': {
+                title: 'Software Isolation Risks',
+                text: 'Kernel vulnerabilities (Spectre, Meltdown, etc.) can bypass software isolation. A compromised host kernel means all tenant isolation is compromised.'
+            },
+            
+            // DPU Metrics
+            'dpu-latency': {
+                title: 'Hardware Processing Latency',
+                text: 'Sub-5μs end-to-end latency through the DPU pipeline. Each stage adds ~100-500ns. Total is deterministic regardless of traffic load.'
+            },
+            'dpu-throughput': {
+                title: 'Line-Rate Processing',
+                text: 'Full 400 Gbps throughput sustained regardless of packet size or processing complexity. Hardware parallelism handles any traffic pattern.'
+            },
+            'dpu-overhead': {
+                title: 'Zero Host Overhead',
+                text: 'All infrastructure processing happens on the DPU. Host CPU is 100% available for tenant workloads. Typical efficiency gain: 30-40% more sellable capacity.'
+            },
+            'dpu-jitter': {
+                title: 'Deterministic Timing',
+                text: 'Hardware pipelines provide sub-microsecond latency variance. Critical for AI training where gradient synchronization requires tight timing.'
+            },
+            'dpu-isolation': {
+                title: 'Hardware-Enforced Boundaries',
+                text: 'Tenant isolation implemented in silicon. No software vulnerability can bypass hardware flow tables. Even a fully compromised host cannot access other tenants.'
+            },
+            
+            // Pipeline Stages
+            'stage-parse': {
+                title: 'Header Parsing Engine',
+                text: 'Dedicated parser ASIC extracts all protocol headers: Ethernet, VLAN, IP, TCP/UDP, VXLAN, GRE. Creates packet metadata structure for downstream stages.'
+            },
+            'stage-match': {
+                title: 'Flow Table Lookup',
+                text: 'TCAM (Ternary Content-Addressable Memory) matches packets against 1M+ flow rules simultaneously. Single clock cycle lookup regardless of table size.'
+            },
+            'stage-action': {
+                title: 'Packet Transformation',
+                text: 'Hardware engines apply match results: modify headers, encapsulate/decapsulate tunnels, rewrite addresses. All operations complete in fixed time.'
+            },
+            'stage-crypto': {
+                title: 'Inline Cryptography',
+                text: 'AES-GCM hardware encrypts at 400 Gbps with zero added latency. IPsec and TLS termination happen transparently in the data path.'
+            },
+            'stage-qos': {
+                title: 'Quality of Service',
+                text: 'Hardware traffic manager implements per-tenant rate limits, priority scheduling, and congestion control. Guarantees fair bandwidth allocation.'
+            },
+            'stage-forward': {
+                title: 'Output Selection',
+                text: 'Final routing decision selects output port and queue. Packets are transmitted immediately or buffered in HBM during congestion.'
+            },
+            
+            // Benefits
+            'benefit-offload': {
+                title: 'Infrastructure Offload',
+                text: 'Networking, storage virtualization, and security run entirely on the DPU. Host servers see only clean, processed application data. Typical CPU savings: 8-12 cores per server.'
+            },
+            'benefit-isolation': {
+                title: 'Silicon-Level Isolation',
+                text: 'Flow tables are programmed via secure management plane. Runtime tenant traffic cannot modify rules. Hardware design prevents any cross-tenant data leakage.'
+            },
+            'benefit-performance': {
+                title: 'Consistent Latency',
+                text: 'Hardware pipelines deliver same latency regardless of load. No garbage collection pauses, no kernel preemption, no cache misses affecting timing.'
+            },
+            'benefit-scale': {
+                title: 'Distributed Architecture',
+                text: 'No central bottleneck—each server\'s DPU handles its own traffic. Cluster network capacity grows linearly with server count. 10,000 GPUs = 10,000 DPUs = 4 Petabits/sec aggregate.'
+            }
+        };
+
+        const tooltip = document.getElementById('tooltip');
+        const tooltipTitle = tooltip.querySelector('.tooltip-title');
+        const tooltipText = tooltip.querySelector('.tooltip-text');
+
+        document.querySelectorAll('[data-tooltip]').forEach(element => {
+            element.addEventListener('mouseenter', (e) => {
+                const key = element.getAttribute('data-tooltip');
+                const data = tooltipData[key];
+                if (data) {
+                    tooltipTitle.textContent = data.title;
+                    tooltipText.textContent = data.text;
+                    
+                    const rect = element.getBoundingClientRect();
+                    const tooltipRect = tooltip.getBoundingClientRect();
+                    
+                    let left = rect.left + (rect.width / 2) - 160;
+                    let top = rect.top - 10;
+                    
+                    if (left < 10) left = 10;
+                    if (left + 320 > window.innerWidth - 10) left = window.innerWidth - 330;
+                    
+                    tooltip.style.left = left + 'px';
+                    tooltip.style.top = 'auto';
+                    tooltip.style.bottom = (window.innerHeight - top) + 'px';
+                    
+                    tooltip.classList.add('visible');
+                }
+            });
+            
+            element.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>

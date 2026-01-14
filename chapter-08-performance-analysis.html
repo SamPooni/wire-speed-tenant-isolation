@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 8: Performance Analysis | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #141414;
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --accent-teal: #5ac8fa;
+            --accent-pink: #ff375f;
+            --accent-yellow: #ffd60a;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; height: 64px;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 1000; display: flex; align-items: center; padding: 0 24px;
+        }
+        
+        .nav-back {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--accent-blue); text-decoration: none;
+            font-size: 14px; font-weight: 500;
+        }
+        .nav-back:hover { opacity: 0.7; }
+        .nav-back svg { width: 20px; height: 20px; }
+        
+        .nav-title {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            font-size: 14px; font-weight: 600; color: var(--text-secondary);
+        }
+        
+        .hero {
+            padding: 140px 24px 80px; max-width: 900px; margin: 0 auto;
+        }
+        
+        .chapter-badge {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, rgba(100,210,255,0.2), rgba(0,113,227,0.2));
+            border: 1px solid rgba(100,210,255,0.3);
+            padding: 10px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600; color: var(--accent-cyan);
+            margin-bottom: 24px;
+        }
+        
+        .chapter-badge span:first-child {
+            background: var(--accent-cyan); color: black;
+            padding: 4px 10px; border-radius: 100px; font-size: 12px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px); font-weight: 700;
+            letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 24px;
+        }
+        
+        .hero-desc {
+            font-size: 20px; color: var(--text-secondary); max-width: 700px;
+        }
+        
+        .content {
+            max-width: 900px; margin: 0 auto; padding: 0 24px 120px;
+        }
+        
+        .section { margin-bottom: 80px; }
+        
+        .section-label {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--accent-cyan); margin-bottom: 12px;
+        }
+        
+        .section h2 {
+            font-size: 32px; font-weight: 700;
+            letter-spacing: -0.02em; margin-bottom: 20px;
+        }
+        
+        .section p {
+            color: var(--text-secondary); font-size: 17px; margin-bottom: 24px;
+        }
+        
+        /* Performance Bar Chart */
+        .chart-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .chart-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+        
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .bar-row {
+            display: grid;
+            grid-template-columns: 140px 1fr 80px;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .bar-label {
+            font-size: 13px;
+            font-weight: 500;
+            text-align: right;
+        }
+        
+        .bar-track {
+            height: 36px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .bar-fill {
+            height: 100%;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding-left: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: black;
+            transition: width 1s ease-out;
+        }
+        
+        .bar-value {
+            font-size: 14px;
+            font-weight: 600;
+            text-align: right;
+        }
+        
+        /* Latency Breakdown */
+        .latency-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .latency-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .latency-timeline {
+            position: relative;
+            height: 80px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        
+        .latency-segment {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .latency-segment:hover {
+            filter: brightness(1.2);
+            z-index: 10;
+        }
+        
+        .latency-segment span {
+            color: black;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .latency-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: help;
+        }
+        
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+        }
+        
+        /* Benchmark Table */
+        .benchmark-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 32px;
+        }
+        
+        .benchmark-table th {
+            background: var(--bg-secondary);
+            padding: 16px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+        }
+        
+        .benchmark-table td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+            cursor: help;
+        }
+        
+        .benchmark-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .benchmark-table tr:hover td {
+            background: rgba(100,210,255,0.05);
+        }
+        
+        .benchmark-table .metric {
+            font-weight: 600;
+        }
+        
+        .benchmark-table .good {
+            color: var(--accent-green);
+        }
+        
+        .benchmark-table .warning {
+            color: var(--accent-orange);
+        }
+        
+        .benchmark-table .bad {
+            color: var(--accent-red);
+        }
+        
+        /* Throughput Gauge */
+        .gauge-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .gauge-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .gauge-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        
+        .gauge {
+            text-align: center;
+            cursor: help;
+        }
+        
+        .gauge-visual {
+            width: 160px;
+            height: 80px;
+            margin: 0 auto 16px;
+            position: relative;
+        }
+        
+        .gauge-arc {
+            position: absolute;
+            width: 160px;
+            height: 80px;
+            border: 8px solid var(--bg-secondary);
+            border-bottom: none;
+            border-radius: 80px 80px 0 0;
+        }
+        
+        .gauge-fill {
+            position: absolute;
+            width: 160px;
+            height: 80px;
+            border: 8px solid transparent;
+            border-bottom: none;
+            border-radius: 80px 80px 0 0;
+            transform-origin: center bottom;
+        }
+        
+        .gauge-value {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        .gauge-label {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .gauge-sublabel {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+        
+        /* Comparison Cards */
+        .perf-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .perf-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 28px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .perf-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-cyan);
+        }
+        
+        .perf-card h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .perf-card h4 span {
+            font-size: 24px;
+        }
+        
+        .perf-metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .perf-metric:last-child {
+            border-bottom: none;
+        }
+        
+        .perf-metric .name {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .perf-metric .value {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        
+        /* Stats Grid */
+        .stats-hero {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .stat-hero {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-hero:hover {
+            border-color: var(--accent-cyan);
+        }
+        
+        .stat-hero .big {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-bottom: 4px;
+        }
+        
+        .stat-hero .label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+        
+        /* Heatmap */
+        .heatmap-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .heatmap-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+        
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 4px;
+            margin-bottom: 16px;
+        }
+        
+        .heatmap-cell {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            cursor: help;
+            transition: all 0.2s ease;
+        }
+        
+        .heatmap-cell:hover {
+            transform: scale(1.2);
+            z-index: 10;
+        }
+        
+        .heatmap-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+        
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            justify-content: center;
+        }
+        
+        .heatmap-legend-bar {
+            width: 200px;
+            height: 12px;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #30d158, #ffd60a, #ff9f0a, #ff453a);
+        }
+        
+        .heatmap-legend span {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+        
+        /* Navigation Footer */
+        .chapter-nav {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 24px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            text-decoration: none;
+            padding: 16px 24px;
+            border-radius: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            transition: all 0.3s ease;
+            max-width: 280px;
+        }
+        
+        .nav-link:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+        
+        .nav-link .direction {
+            font-size: 12px;
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+        
+        .nav-link .title {
+            font-size: 15px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--accent-cyan);
+            border-radius: 12px;
+            padding: 16px;
+            max-width: 320px;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+        
+        .tooltip.visible { opacity: 1; }
+        
+        .tooltip-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-bottom: 6px;
+        }
+        
+        .tooltip-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid var(--accent-cyan);
+        }
+        
+        @media (max-width: 768px) {
+            .stats-hero, .perf-cards, .gauge-grid { grid-template-columns: 1fr; }
+            .bar-row { grid-template-columns: 1fr; }
+            .bar-label { text-align: left; }
+            .heatmap-grid { grid-template-columns: repeat(6, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html" class="nav-back">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to Overview
+        </a>
+        <span class="nav-title">Wire-Speed Tenant Isolation</span>
+    </nav>
+    
+    <header class="hero">
+        <div class="chapter-badge">
+            <span>08</span>
+            <span>Performance Analysis</span>
+        </div>
+        <h1>Measuring Success</h1>
+        <p class="hero-desc">Benchmarks, metrics, and real-world performance data that prove (or disprove) wire-speed tenant isolation claims.</p>
+    </header>
+    
+    <main class="content">
+        <!-- Key Stats -->
+        <div class="stats-hero">
+            <div class="stat-hero" data-tooltip="stat-throughput">
+                <div class="big">400G</div>
+                <div class="label">Line Rate</div>
+            </div>
+            <div class="stat-hero" data-tooltip="stat-p99">
+                <div class="big">&lt;10µs</div>
+                <div class="label">P99 Latency</div>
+            </div>
+            <div class="stat-hero" data-tooltip="stat-loss">
+                <div class="big">0%</div>
+                <div class="label">Packet Loss</div>
+            </div>
+            <div class="stat-hero" data-tooltip="stat-isolation">
+                <div class="big">100%</div>
+                <div class="label">Isolation</div>
+            </div>
+        </div>
+        
+        <!-- Section: Throughput -->
+        <section class="section">
+            <div class="section-label">Throughput</div>
+            <h2>Bandwidth Performance</h2>
+            <p>DPU throughput varies by packet size and processing complexity. Small packets stress the packet rate, while large packets stress bandwidth.</p>
+            
+            <div class="chart-container">
+                <h3>📊 Throughput by Packet Size</h3>
+                <div class="bar-chart">
+                    <div class="bar-row" data-tooltip="pkt-64">
+                        <div class="bar-label">64 bytes</div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: 25%; background: linear-gradient(90deg, #ff453a, #ff9f0a);">
+                                <span>100 Gbps</span>
+                            </div>
+                        </div>
+                        <div class="bar-value" style="color: var(--accent-orange);">25%</div>
+                    </div>
+                    <div class="bar-row" data-tooltip="pkt-512">
+                        <div class="bar-label">512 bytes</div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: 60%; background: linear-gradient(90deg, #ff9f0a, #ffd60a);">
+                                <span>240 Gbps</span>
+                            </div>
+                        </div>
+                        <div class="bar-value" style="color: var(--accent-yellow);">60%</div>
+                    </div>
+                    <div class="bar-row" data-tooltip="pkt-1500">
+                        <div class="bar-label">1500 bytes</div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: 85%; background: linear-gradient(90deg, #ffd60a, #30d158);">
+                                <span>340 Gbps</span>
+                            </div>
+                        </div>
+                        <div class="bar-value" style="color: var(--accent-green);">85%</div>
+                    </div>
+                    <div class="bar-row" data-tooltip="pkt-9000">
+                        <div class="bar-label">9000 bytes (Jumbo)</div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: 100%; background: linear-gradient(90deg, #30d158, #64d2ff);">
+                                <span>400 Gbps</span>
+                            </div>
+                        </div>
+                        <div class="bar-value" style="color: var(--accent-cyan);">100%</div>
+                    </div>
+                </div>
+                <p style="text-align: center; font-size: 13px; color: var(--text-tertiary); margin-top: 20px;">
+                    Full 400 Gbps line rate achieved with jumbo frames (MTU 9000)
+                </p>
+            </div>
+        </section>
+        
+        <!-- Section: Latency -->
+        <section class="section">
+            <div class="section-label">Latency</div>
+            <h2>End-to-End Latency Breakdown</h2>
+            <p>Every microsecond counts in AI workloads. Understanding where latency comes from helps optimize the entire path.</p>
+            
+            <div class="latency-container">
+                <h3>⏱️ Latency Components (Total: 8.5µs)</h3>
+                <div class="latency-timeline">
+                    <div class="latency-segment" style="left: 0; width: 12%; background: var(--accent-cyan);" data-tooltip="lat-wire">
+                        <span>Wire</span>
+                    </div>
+                    <div class="latency-segment" style="left: 12%; width: 18%; background: var(--accent-blue);" data-tooltip="lat-parse">
+                        <span>Parse</span>
+                    </div>
+                    <div class="latency-segment" style="left: 30%; width: 35%; background: var(--accent-green);" data-tooltip="lat-policy">
+                        <span>Policy</span>
+                    </div>
+                    <div class="latency-segment" style="left: 65%; width: 23%; background: var(--accent-yellow);" data-tooltip="lat-qos">
+                        <span>QoS</span>
+                    </div>
+                    <div class="latency-segment" style="left: 88%; width: 12%; background: var(--accent-purple);" data-tooltip="lat-tx">
+                        <span>TX</span>
+                    </div>
+                </div>
+                <div class="latency-legend">
+                    <div class="legend-item" data-tooltip="lat-wire">
+                        <div class="legend-dot" style="background: var(--accent-cyan);"></div>
+                        <span>Wire: 1µs</span>
+                    </div>
+                    <div class="legend-item" data-tooltip="lat-parse">
+                        <div class="legend-dot" style="background: var(--accent-blue);"></div>
+                        <span>Parse: 1.5µs</span>
+                    </div>
+                    <div class="legend-item" data-tooltip="lat-policy">
+                        <div class="legend-dot" style="background: var(--accent-green);"></div>
+                        <span>Policy: 3µs</span>
+                    </div>
+                    <div class="legend-item" data-tooltip="lat-qos">
+                        <div class="legend-dot" style="background: var(--accent-yellow);"></div>
+                        <span>QoS: 2µs</span>
+                    </div>
+                    <div class="legend-item" data-tooltip="lat-tx">
+                        <div class="legend-dot" style="background: var(--accent-purple);"></div>
+                        <span>Transmit: 1µs</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Section: Benchmarks -->
+        <section class="section">
+            <div class="section-label">Benchmarks</div>
+            <h2>Real-World Performance</h2>
+            <p>Lab benchmarks vs production reality. The numbers that matter for actual AI training workloads.</p>
+            
+            <table class="benchmark-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Spec</th>
+                        <th>Measured</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr data-tooltip="bench-throughput">
+                        <td class="metric">Max Throughput</td>
+                        <td>400 Gbps</td>
+                        <td>398 Gbps</td>
+                        <td class="good">✓ PASS</td>
+                    </tr>
+                    <tr data-tooltip="bench-pps">
+                        <td class="metric">Packet Rate</td>
+                        <td>595 Mpps</td>
+                        <td>520 Mpps</td>
+                        <td class="warning">⚠ 87%</td>
+                    </tr>
+                    <tr data-tooltip="bench-latency">
+                        <td class="metric">P99 Latency</td>
+                        <td>&lt;10µs</td>
+                        <td>8.5µs</td>
+                        <td class="good">✓ PASS</td>
+                    </tr>
+                    <tr data-tooltip="bench-jitter">
+                        <td class="metric">Jitter</td>
+                        <td>&lt;1µs</td>
+                        <td>0.8µs</td>
+                        <td class="good">✓ PASS</td>
+                    </tr>
+                    <tr data-tooltip="bench-loss">
+                        <td class="metric">Packet Loss</td>
+                        <td>0%</td>
+                        <td>0.001%</td>
+                        <td class="warning">⚠ Under Load</td>
+                    </tr>
+                    <tr data-tooltip="bench-isolation">
+                        <td class="metric">Isolation Breach</td>
+                        <td>0</td>
+                        <td>0</td>
+                        <td class="good">✓ SECURE</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+        
+        <!-- Section: Gauges -->
+        <section class="section">
+            <div class="section-label">Live Metrics</div>
+            <h2>System Utilization</h2>
+            <p>Real-time view of DPU resource utilization during typical AI training workload.</p>
+            
+            <div class="gauge-container">
+                <h3>📈 Resource Utilization</h3>
+                <div class="gauge-grid">
+                    <div class="gauge" data-tooltip="gauge-cpu">
+                        <div class="gauge-visual">
+                            <div class="gauge-arc"></div>
+                            <div class="gauge-fill" style="border-color: var(--accent-green); clip-path: polygon(0 100%, 0 0, 45% 0, 45% 100%);"></div>
+                            <div class="gauge-value" style="color: var(--accent-green);">45%</div>
+                        </div>
+                        <div class="gauge-label">ARM CPU</div>
+                        <div class="gauge-sublabel">8x A78 Cores</div>
+                    </div>
+                    <div class="gauge" data-tooltip="gauge-accel">
+                        <div class="gauge-visual">
+                            <div class="gauge-arc"></div>
+                            <div class="gauge-fill" style="border-color: var(--accent-cyan); clip-path: polygon(0 100%, 0 0, 78% 0, 78% 100%);"></div>
+                            <div class="gauge-value" style="color: var(--accent-cyan);">78%</div>
+                        </div>
+                        <div class="gauge-label">Accelerators</div>
+                        <div class="gauge-sublabel">Crypto + RegEx</div>
+                    </div>
+                    <div class="gauge" data-tooltip="gauge-mem">
+                        <div class="gauge-visual">
+                            <div class="gauge-arc"></div>
+                            <div class="gauge-fill" style="border-color: var(--accent-yellow); clip-path: polygon(0 100%, 0 0, 62% 0, 62% 100%);"></div>
+                            <div class="gauge-value" style="color: var(--accent-yellow);">62%</div>
+                        </div>
+                        <div class="gauge-label">Memory</div>
+                        <div class="gauge-sublabel">16GB DDR5</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Section: Heatmap -->
+        <section class="section">
+            <div class="section-label">Traffic Analysis</div>
+            <h2>Latency Heatmap</h2>
+            <p>24-hour view of latency distribution across all tenant traffic. Each cell represents 2 hours × one latency bucket.</p>
+            
+            <div class="heatmap-container">
+                <h3>🗓️ Latency Distribution Over Time</h3>
+                <div class="heatmap-grid">
+                    <!-- Row 1: P99 -->
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #5ac8fa;" data-tooltip="heat-ok"></div>
+                    <div class="heatmap-cell" style="background: #ffd60a;" data-tooltip="heat-warn"></div>
+                    <div class="heatmap-cell" style="background: #ff9f0a;" data-tooltip="heat-high"></div>
+                    <div class="heatmap-cell" style="background: #ff453a;" data-tooltip="heat-crit"></div>
+                    <div class="heatmap-cell" style="background: #ff9f0a;" data-tooltip="heat-high"></div>
+                    <div class="heatmap-cell" style="background: #ffd60a;" data-tooltip="heat-warn"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #5ac8fa;" data-tooltip="heat-ok"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <!-- Row 2: P95 -->
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #5ac8fa;" data-tooltip="heat-ok"></div>
+                    <div class="heatmap-cell" style="background: #ffd60a;" data-tooltip="heat-warn"></div>
+                    <div class="heatmap-cell" style="background: #ff9f0a;" data-tooltip="heat-high"></div>
+                    <div class="heatmap-cell" style="background: #ffd60a;" data-tooltip="heat-warn"></div>
+                    <div class="heatmap-cell" style="background: #5ac8fa;" data-tooltip="heat-ok"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <!-- Row 3: P50 -->
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #5ac8fa;" data-tooltip="heat-ok"></div>
+                    <div class="heatmap-cell" style="background: #ffd60a;" data-tooltip="heat-warn"></div>
+                    <div class="heatmap-cell" style="background: #5ac8fa;" data-tooltip="heat-ok"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                    <div class="heatmap-cell" style="background: #30d158;" data-tooltip="heat-good"></div>
+                </div>
+                <div class="heatmap-labels">
+                    <span>00:00</span>
+                    <span>04:00</span>
+                    <span>08:00</span>
+                    <span>12:00</span>
+                    <span>16:00</span>
+                    <span>20:00</span>
+                    <span>24:00</span>
+                </div>
+                <div class="heatmap-legend">
+                    <span>&lt;5µs</span>
+                    <div class="heatmap-legend-bar"></div>
+                    <span>&gt;15µs</span>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Section: Comparison -->
+        <section class="section">
+            <div class="section-label">Comparison</div>
+            <h2>DPU vs Traditional</h2>
+            <p>Side-by-side comparison of DPU-based isolation versus traditional software approaches.</p>
+            
+            <div class="perf-cards">
+                <div class="perf-card" data-tooltip="comp-dpu">
+                    <h4><span>🔷</span> BlueField-3 DPU</h4>
+                    <div class="perf-metric">
+                        <span class="name">Throughput</span>
+                        <span class="value" style="color: var(--accent-green);">400 Gbps</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="name">Latency (P99)</span>
+                        <span class="value" style="color: var(--accent-green);">8.5µs</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="name">CPU Overhead</span>
+                        <span class="value" style="color: var(--accent-green);">0%</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="name">Isolation</span>
+                        <span class="value" style="color: var(--accent-green);">Hardware</span>
+                    </div>
+                </div>
+                
+                <div class="perf-card" data-tooltip="comp-sw">
+                    <h4><span>💻</span> OVS + DPDK</h4>
+                    <div class="perf-metric">
+                        <span class="name">Throughput</span>
+                        <span class="value" style="color: var(--accent-orange);">100 Gbps</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="name">Latency (P99)</span>
+                        <span class="value" style="color: var(--accent-red);">150µs</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="name">CPU Overhead</span>
+                        <span class="value" style="color: var(--accent-red);">8 cores</span>
+                    </div>
+                    <div class="perf-metric">
+                        <span class="name">Isolation</span>
+                        <span class="value" style="color: var(--accent-orange);">Software</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="chapter-nav">
+        <a href="chapter-07-policy-enforcement.html" class="nav-link">
+            <span class="direction">← Previous</span>
+            <span class="title">Policy Enforcement</span>
+        </a>
+        <a href="chapter-09-hardware-evolution.html" class="nav-link">
+            <span class="direction">Next →</span>
+            <span class="title">Hardware Evolution</span>
+        </a>
+    </footer>
+    
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+    </div>
+    
+    <script>
+        const tooltips = {
+            'stat-throughput': { title: 'Line Rate', text: 'Maximum theoretical throughput with jumbo frames. Real-world varies by packet size.' },
+            'stat-p99': { title: 'P99 Latency', text: '99th percentile latency—99% of packets processed faster than this. Critical for AI sync.' },
+            'stat-loss': { title: 'Packet Loss', text: 'Zero packet loss under normal operation. Any loss triggers retransmission delays.' },
+            'stat-isolation': { title: 'Isolation Guarantee', text: 'Hardware-enforced tenant isolation. No software bypass possible.' },
+            'pkt-64': { title: '64-byte Packets', text: 'Minimum Ethernet frame size. Tests maximum packet rate (595 Mpps). Only 25% line rate due to per-packet overhead.' },
+            'pkt-512': { title: '512-byte Packets', text: 'Typical control traffic size. Achieves 60% line rate as header overhead decreases relative to payload.' },
+            'pkt-1500': { title: '1500-byte Packets', text: 'Standard MTU size. 85% line rate—good balance of throughput and compatibility.' },
+            'pkt-9000': { title: 'Jumbo Frames', text: '9000-byte MTU. Maximum efficiency—full 400 Gbps line rate. Requires end-to-end jumbo support.' },
+            'lat-wire': { title: 'Wire Delay', text: 'Physical propagation and SerDes conversion. Fixed ~1µs at network interface.' },
+            'lat-parse': { title: 'Header Parsing', text: 'Extract L2-L4 headers, identify protocol, prepare for classification. ~1.5µs.' },
+            'lat-policy': { title: 'Policy Processing', text: 'Match against 1M+ flow rules, apply security policies, make allow/deny decision. ~3µs.' },
+            'lat-qos': { title: 'QoS Processing', text: 'Assign priority queue, apply rate limiting, traffic shaping. ~2µs.' },
+            'lat-tx': { title: 'Transmit', text: 'Queue selection, header modification, physical transmission. ~1µs.' },
+            'bench-throughput': { title: 'Max Throughput', text: 'Measured 398 Gbps with jumbo frames. 2 Gbps overhead from IPG and preamble.' },
+            'bench-pps': { title: 'Packet Rate', text: '520 Mpps achieved vs 595 Mpps theoretical. Gap due to complex policy rules.' },
+            'bench-latency': { title: 'P99 Latency', text: '8.5µs P99 under full load. Well within 10µs target for AI workloads.' },
+            'bench-jitter': { title: 'Jitter', text: '0.8µs standard deviation. Consistent timing critical for synchronized workloads.' },
+            'bench-loss': { title: 'Packet Loss', text: '0.001% loss during extreme bursts. Acceptable for RDMA with retry mechanisms.' },
+            'bench-isolation': { title: 'Isolation', text: 'Zero cross-tenant packet leakage in 30-day test. Hardware isolation verified.' },
+            'gauge-cpu': { title: 'ARM CPU Usage', text: '45% utilization—headroom for control plane and management tasks.' },
+            'gauge-accel': { title: 'Accelerator Usage', text: '78% usage of crypto and regex engines during encrypted traffic.' },
+            'gauge-mem': { title: 'Memory Usage', text: '62% of 16GB DDR5. Flow tables and packet buffers.' },
+            'heat-good': { title: 'Excellent (<5µs)', text: 'Latency well within target. Normal operation.' },
+            'heat-ok': { title: 'Good (5-8µs)', text: 'Slightly elevated but acceptable. Minor load increase.' },
+            'heat-warn': { title: 'Warning (8-12µs)', text: 'Approaching threshold. Monitor for trending.' },
+            'heat-high': { title: 'High (12-15µs)', text: 'Above target. May impact sensitive workloads.' },
+            'heat-crit': { title: 'Critical (>15µs)', text: 'Exceeds target. Investigate root cause immediately.' },
+            'comp-dpu': { title: 'BlueField-3 DPU', text: 'Hardware-based packet processing with dedicated accelerators for policy enforcement.' },
+            'comp-sw': { title: 'OVS + DPDK', text: 'Software virtual switch with kernel bypass. High CPU usage, variable latency.' }
+        };
+        
+        const tooltip = document.getElementById('tooltip');
+        const tooltipTitle = tooltip.querySelector('.tooltip-title');
+        const tooltipText = tooltip.querySelector('.tooltip-text');
+        
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const data = tooltips[el.dataset.tooltip];
+                if (!data) return;
+                
+                tooltipTitle.textContent = data.title;
+                tooltipText.textContent = data.text;
+                
+                const rect = el.getBoundingClientRect();
+                tooltip.style.left = rect.left + rect.width/2 - tooltip.offsetWidth/2 + 'px';
+                tooltip.style.top = rect.top - tooltip.offsetHeight - 12 + 'px';
+                
+                if (parseFloat(tooltip.style.left) < 10) tooltip.style.left = '10px';
+                if (parseFloat(tooltip.style.left) + tooltip.offsetWidth > window.innerWidth - 10) {
+                    tooltip.style.left = (window.innerWidth - tooltip.offsetWidth - 10) + 'px';
+                }
+                
+                tooltip.classList.add('visible');
+            });
+            
+            el.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>

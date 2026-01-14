@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 1: Introduction to Wire-Speed Isolation | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0f;
+            --bg-card: #111116;
+            --bg-code: #1a1a22;
+            --text-primary: #ffffff;
+            --text-secondary: #86868b;
+            --text-tertiary: #6e6e73;
+            --accent-purple: #bf5af2;
+            --accent-blue: #2997ff;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-pink: #ff375f;
+            --accent-cyan: #64d2ff;
+            --border-color: rgba(255,255,255,0.1);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Navigation */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            z-index: 100;
+        }
+        
+        .nav-brand {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 32px;
+        }
+        
+        .nav-links a {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .nav-links a:hover { color: var(--text-primary); }
+        
+        /* Hero */
+        .chapter-hero {
+            padding: 140px 40px 80px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .chapter-hero::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(191,90,242,0.15), transparent);
+            pointer-events: none;
+        }
+        
+        .chapter-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(191,90,242,0.15);
+            border: 1px solid rgba(191,90,242,0.3);
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--accent-purple);
+            margin-bottom: 24px;
+        }
+        
+        .chapter-title {
+            font-size: clamp(36px, 6vw, 64px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #fff, #bf5af2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .chapter-subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        /* Content */
+        .content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 40px 80px;
+        }
+        
+        .section {
+            margin-bottom: 80px;
+        }
+        
+        .section-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+        }
+        
+        .section-text {
+            font-size: 17px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            max-width: 800px;
+        }
+        
+        /* Concept Cards */
+        .concept-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 48px;
+        }
+        
+        .concept-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 28px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .concept-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--card-gradient);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .concept-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255,255,255,0.2);
+        }
+        
+        .concept-card:hover::before { opacity: 1; }
+        
+        .concept-card[data-color="purple"] { --card-gradient: linear-gradient(90deg, #bf5af2, #5e5ce6); }
+        .concept-card[data-color="blue"] { --card-gradient: linear-gradient(90deg, #2997ff, #64d2ff); }
+        .concept-card[data-color="orange"] { --card-gradient: linear-gradient(90deg, #ff9f0a, #ffd60a); }
+        .concept-card[data-color="green"] { --card-gradient: linear-gradient(90deg, #30d158, #63e6be); }
+        
+        .concept-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+        
+        .concept-card[data-color="purple"] .concept-icon { background: rgba(191,90,242,0.2); }
+        .concept-card[data-color="blue"] .concept-icon { background: rgba(41,151,255,0.2); }
+        .concept-card[data-color="orange"] .concept-icon { background: rgba(255,159,10,0.2); }
+        .concept-card[data-color="green"] .concept-icon { background: rgba(48,209,88,0.2); }
+        
+        .concept-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .concept-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        
+        /* Architecture Diagram */
+        .diagram-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 40px;
+            margin: 48px 0;
+        }
+        
+        .diagram-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+        
+        .architecture-svg {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            display: block;
+        }
+        
+        /* Tooltips */
+        [data-tooltip] {
+            position: relative;
+            cursor: help;
+        }
+        
+        [data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 12px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-code);
+            color: var(--text-primary);
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            white-space: nowrap;
+            max-width: 320px;
+            white-space: normal;
+            z-index: 1000;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        
+        /* Stats */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin: 48px 0;
+        }
+        
+        .stat-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value.purple { color: var(--accent-purple); }
+        .stat-value.blue { color: var(--accent-blue); }
+        .stat-value.orange { color: var(--accent-orange); }
+        .stat-value.green { color: var(--accent-green); }
+        
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+        
+        /* Problem/Solution */
+        .problem-solution {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            margin: 48px 0;
+        }
+        
+        .ps-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 32px;
+        }
+        
+        .ps-card.problem {
+            border-left: 4px solid var(--accent-pink);
+        }
+        
+        .ps-card.solution {
+            border-left: 4px solid var(--accent-green);
+        }
+        
+        .ps-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .ps-title.problem-title { color: var(--accent-pink); }
+        .ps-title.solution-title { color: var(--accent-green); }
+        
+        .ps-list {
+            list-style: none;
+        }
+        
+        .ps-list li {
+            font-size: 14px;
+            color: var(--text-secondary);
+            padding: 8px 0;
+            padding-left: 24px;
+            position: relative;
+        }
+        
+        .ps-list li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 16px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .problem .ps-list li::before { background: var(--accent-pink); }
+        .solution .ps-list li::before { background: var(--accent-green); }
+        
+        /* Callout */
+        .callout {
+            background: rgba(191,90,242,0.1);
+            border: 1px solid rgba(191,90,242,0.3);
+            border-radius: 16px;
+            padding: 24px 28px;
+            margin: 32px 0;
+        }
+        
+        .callout-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--accent-purple);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .callout-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        /* Footer Nav */
+        .footer-nav {
+            display: flex;
+            justify-content: space-between;
+            padding: 40px 0;
+            border-top: 1px solid var(--border-color);
+            margin-top: 80px;
+        }
+        
+        .footer-nav a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 15px;
+            transition: color 0.2s;
+        }
+        
+        .footer-nav a:hover { color: var(--accent-purple); }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .problem-solution { grid-template-columns: 1fr; }
+            .content { padding: 0 20px 60px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">Wire-Speed Tenant Isolation</div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="chapter-02-multi-tenant.html">Next Chapter →</a>
+        </div>
+    </nav>
+    
+    <header class="chapter-hero">
+        <div class="chapter-badge">📚 Chapter 01 — Fundamentals</div>
+        <h1 class="chapter-title">Introduction to Wire-Speed Isolation</h1>
+        <p class="chapter-subtitle">Understanding the fundamental challenge of isolating AI tenants at network line rate while maintaining microsecond latencies.</p>
+    </header>
+    
+    <main class="content">
+        <section class="section">
+            <h2 class="section-title">What is Wire-Speed Tenant Isolation?</h2>
+            <p class="section-text">
+                Wire-speed tenant isolation is the ability to enforce complete separation between multiple customers (tenants) 
+                sharing the same physical network infrastructure, while processing every single packet at the full speed 
+                of the network link — typically 25, 100, 200, or even 400 gigabits per second.
+            </p>
+            <p class="section-text">
+                Think of it like having multiple completely separate highway systems for different trucking companies, 
+                but all using the same physical road. Each company's trucks must be kept strictly apart, their speed 
+                maintained, and yet not a single truck can be slowed down while checking which company it belongs to.
+            </p>
+            
+            <div class="stats-row">
+                <div class="stat-item" data-tooltip="400 billion bits per second - the latest Ethernet standard for datacenter networks">
+                    <div class="stat-value purple">400 Gbps</div>
+                    <div class="stat-label">Wire Speed</div>
+                </div>
+                <div class="stat-item" data-tooltip="One millionth of a second - packets must be processed in this timeframe">
+                    <div class="stat-value blue">&lt;10 μs</div>
+                    <div class="stat-label">Target Latency</div>
+                </div>
+                <div class="stat-item" data-tooltip="Millions of packets per second that must be inspected and routed correctly">
+                    <div class="stat-value orange">300M+</div>
+                    <div class="stat-label">Packets/Second</div>
+                </div>
+                <div class="stat-item" data-tooltip="Zero cross-tenant data leakage is the security requirement">
+                    <div class="stat-value green">100%</div>
+                    <div class="stat-label">Isolation Required</div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <h2 class="section-title">Why Does This Matter?</h2>
+            <p class="section-text">
+                Modern AI infrastructure serves multiple customers simultaneously. A single GPU cluster might train 
+                OpenAI's models, process Netflix recommendations, and run a startup's prototype — all at the same time. 
+                Each tenant's data, performance, and security must remain completely isolated.
+            </p>
+            
+            <div class="concept-grid">
+                <div class="concept-card" data-color="purple">
+                    <div class="concept-icon">🔒</div>
+                    <h3 class="concept-title">Security Isolation</h3>
+                    <p class="concept-desc">
+                        Tenant A must never be able to see, intercept, or even detect Tenant B's network traffic. 
+                        This includes protection against side-channel attacks and timing-based information leakage.
+                    </p>
+                </div>
+                
+                <div class="concept-card" data-color="blue">
+                    <div class="concept-icon">⚡</div>
+                    <h3 class="concept-title">Performance Isolation</h3>
+                    <p class="concept-desc">
+                        When Tenant A bursts to 100 Gbps for model synchronization, Tenant B's latency-sensitive 
+                        inference workload must not experience any degradation. Each tenant gets their guaranteed slice.
+                    </p>
+                </div>
+                
+                <div class="concept-card" data-color="orange">
+                    <div class="concept-icon">💰</div>
+                    <h3 class="concept-title">Cost Efficiency</h3>
+                    <p class="concept-desc">
+                        Physically separate networks would provide perfect isolation but cost 10-100x more. 
+                        Multi-tenancy is essential for making AI infrastructure economically viable.
+                    </p>
+                </div>
+                
+                <div class="concept-card" data-color="green">
+                    <div class="concept-icon">📈</div>
+                    <h3 class="concept-title">Scale Requirements</h3>
+                    <p class="concept-desc">
+                        Modern AI clusters have thousands of GPUs generating petabytes of traffic daily. 
+                        Isolation mechanisms must scale without adding latency or requiring per-packet CPU processing.
+                    </p>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <h2 class="section-title">The Core Challenge Visualized</h2>
+            
+            <div class="diagram-container">
+                <h3 class="diagram-title">Multi-Tenant AI Infrastructure Challenge</h3>
+                <svg class="architecture-svg" viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Background layers -->
+                    <defs>
+                        <linearGradient id="tenantAGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#bf5af2;stop-opacity:0.3"/>
+                            <stop offset="100%" style="stop-color:#bf5af2;stop-opacity:0.1"/>
+                        </linearGradient>
+                        <linearGradient id="tenantBGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#2997ff;stop-opacity:0.3"/>
+                            <stop offset="100%" style="stop-color:#2997ff;stop-opacity:0.1"/>
+                        </linearGradient>
+                        <linearGradient id="tenantCGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#30d158;stop-opacity:0.3"/>
+                            <stop offset="100%" style="stop-color:#30d158;stop-opacity:0.1"/>
+                        </linearGradient>
+                        <linearGradient id="networkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#ff9f0a;stop-opacity:0.2"/>
+                            <stop offset="100%" style="stop-color:#ff9f0a;stop-opacity:0.05"/>
+                        </linearGradient>
+                    </defs>
+                    
+                    <!-- Title -->
+                    <text x="450" y="30" text-anchor="middle" fill="#fff" font-size="16" font-weight="600">Shared Physical Infrastructure</text>
+                    
+                    <!-- Tenants Section -->
+                    <text x="50" y="70" fill="#86868b" font-size="12" font-weight="500">TENANTS</text>
+                    
+                    <!-- Tenant A -->
+                    <rect x="50" y="85" width="250" height="100" rx="12" fill="url(#tenantAGrad)" stroke="#bf5af2" stroke-width="1"/>
+                    <text x="70" y="110" fill="#bf5af2" font-size="13" font-weight="600">Tenant A: LLM Training</text>
+                    <text x="70" y="130" fill="#86868b" font-size="11">• 256 GPUs distributed training</text>
+                    <text x="70" y="148" fill="#86868b" font-size="11">• 100 Gbps all-reduce traffic</text>
+                    <text x="70" y="166" fill="#86868b" font-size="11">• Microsecond sync requirements</text>
+                    
+                    <!-- Tenant B -->
+                    <rect x="325" y="85" width="250" height="100" rx="12" fill="url(#tenantBGrad)" stroke="#2997ff" stroke-width="1"/>
+                    <text x="345" y="110" fill="#2997ff" font-size="13" font-weight="600">Tenant B: Inference Service</text>
+                    <text x="345" y="130" fill="#86868b" font-size="11">• Real-time API serving</text>
+                    <text x="345" y="148" fill="#86868b" font-size="11">• &lt;10ms response SLA</text>
+                    <text x="345" y="166" fill="#86868b" font-size="11">• Unpredictable request bursts</text>
+                    
+                    <!-- Tenant C -->
+                    <rect x="600" y="85" width="250" height="100" rx="12" fill="url(#tenantCGrad)" stroke="#30d158" stroke-width="1"/>
+                    <text x="620" y="110" fill="#30d158" font-size="13" font-weight="600">Tenant C: Batch Processing</text>
+                    <text x="620" y="130" fill="#86868b" font-size="11">• Large data pipelines</text>
+                    <text x="620" y="148" fill="#86868b" font-size="11">• Throughput-optimized</text>
+                    <text x="620" y="166" fill="#86868b" font-size="11">• Best-effort priority</text>
+                    
+                    <!-- Isolation Layer -->
+                    <text x="50" y="225" fill="#86868b" font-size="12" font-weight="500">ISOLATION LAYER</text>
+                    
+                    <rect x="50" y="240" width="800" height="70" rx="12" fill="rgba(255,159,10,0.1)" stroke="#ff9f0a" stroke-width="1" stroke-dasharray="5,5"/>
+                    <text x="450" y="270" text-anchor="middle" fill="#ff9f0a" font-size="14" font-weight="600">🛡️ Wire-Speed Policy Enforcement (DPU)</text>
+                    <text x="450" y="292" text-anchor="middle" fill="#86868b" font-size="11">Hardware-accelerated packet classification • QoS enforcement • Tenant isolation at 400 Gbps</text>
+                    
+                    <!-- Arrows from tenants to isolation -->
+                    <path d="M175 185 L175 240" stroke="#bf5af2" stroke-width="2" stroke-opacity="0.5" marker-end="url(#arrowPurple)"/>
+                    <path d="M450 185 L450 240" stroke="#2997ff" stroke-width="2" stroke-opacity="0.5" marker-end="url(#arrowBlue)"/>
+                    <path d="M725 185 L725 240" stroke="#30d158" stroke-width="2" stroke-opacity="0.5" marker-end="url(#arrowGreen)"/>
+                    
+                    <!-- Shared Network -->
+                    <text x="50" y="350" fill="#86868b" font-size="12" font-weight="500">SHARED PHYSICAL NETWORK</text>
+                    
+                    <rect x="50" y="365" width="800" height="120" rx="12" fill="url(#networkGrad)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                    
+                    <!-- Network components -->
+                    <rect x="80" y="390" width="120" height="50" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                    <text x="140" y="420" text-anchor="middle" fill="#fff" font-size="11" font-weight="500">Spine Switch</text>
+                    
+                    <rect x="230" y="390" width="120" height="50" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                    <text x="290" y="420" text-anchor="middle" fill="#fff" font-size="11" font-weight="500">Leaf Switch</text>
+                    
+                    <rect x="380" y="390" width="120" height="50" rx="8" fill="rgba(191,90,242,0.2)" stroke="#bf5af2" stroke-width="1"/>
+                    <text x="440" y="420" text-anchor="middle" fill="#bf5af2" font-size="11" font-weight="500">BlueField DPU</text>
+                    
+                    <rect x="530" y="390" width="120" height="50" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                    <text x="590" y="420" text-anchor="middle" fill="#fff" font-size="11" font-weight="500">GPU Servers</text>
+                    
+                    <rect x="680" y="390" width="140" height="50" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                    <text x="750" y="420" text-anchor="middle" fill="#fff" font-size="11" font-weight="500">Storage Arrays</text>
+                    
+                    <!-- Connection lines -->
+                    <line x1="200" y1="415" x2="230" y2="415" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+                    <line x1="350" y1="415" x2="380" y2="415" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+                    <line x1="500" y1="415" x2="530" y2="415" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+                    <line x1="650" y1="415" x2="680" y2="415" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+                    
+                    <text x="450" y="470" text-anchor="middle" fill="#6e6e73" font-size="11">100G/400G Ethernet Fabric • East-West Traffic • Sub-10μs Latency Requirement</text>
+                    
+                    <!-- Arrow markers -->
+                    <defs>
+                        <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+                            <path d="M0,0 L10,5 L0,10 Z" fill="#bf5af2" fill-opacity="0.5"/>
+                        </marker>
+                        <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+                            <path d="M0,0 L10,5 L0,10 Z" fill="#2997ff" fill-opacity="0.5"/>
+                        </marker>
+                        <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+                            <path d="M0,0 L10,5 L0,10 Z" fill="#30d158" fill-opacity="0.5"/>
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
+        </section>
+        
+        <section class="section">
+            <h2 class="section-title">The Fundamental Problem</h2>
+            
+            <div class="problem-solution">
+                <div class="ps-card problem">
+                    <h3 class="ps-title problem-title">❌ The Challenge</h3>
+                    <ul class="ps-list">
+                        <li><strong>Speed vs Security Trade-off:</strong> Traditional software-based isolation adds 50-100+ microseconds of latency per packet — unacceptable for AI workloads needing &lt;10μs</li>
+                        <li><strong>Unpredictable Traffic:</strong> AI training creates massive traffic bursts (microbursts) lasting only 10-20 microseconds, faster than software can react</li>
+                        <li><strong>CPU Bottleneck:</strong> Host CPUs cannot inspect 300+ million packets per second without becoming the bottleneck</li>
+                        <li><strong>Policy Complexity:</strong> Each tenant may have hundreds of QoS rules, security policies, and isolation requirements</li>
+                    </ul>
+                </div>
+                
+                <div class="ps-card solution">
+                    <h3 class="ps-title solution-title">✓ The Solution</h3>
+                    <ul class="ps-list">
+                        <li><strong>Hardware Offload:</strong> Move packet processing from host CPUs to specialized Data Processing Units (DPUs) with dedicated silicon</li>
+                        <li><strong>Wire-Speed Processing:</strong> DPUs classify and enforce policies at line rate — no packets queued waiting for inspection</li>
+                        <li><strong>Hardware Isolation:</strong> Tenant separation enforced in hardware (SR-IOV, VxLAN), not just software configuration</li>
+                        <li><strong>Predictive QoS:</strong> Pre-computed policy tables loaded into hardware for instant decision-making</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <h2 class="section-title">Key Technologies Involved</h2>
+            <p class="section-text">
+                Wire-speed tenant isolation relies on several advanced technologies working together. 
+                This documentation series will explore each in depth.
+            </p>
+            
+            <div class="concept-grid">
+                <div class="concept-card" data-color="purple" data-tooltip="A specialized processor that handles network, storage, and security functions, offloading them from the main CPU">
+                    <div class="concept-icon">🔧</div>
+                    <h3 class="concept-title">DPU (Data Processing Unit)</h3>
+                    <p class="concept-desc">
+                        A new category of processor designed specifically for data center infrastructure. 
+                        DPUs contain ARM CPUs, hardware accelerators, and smart NICs to process packets at wire speed.
+                    </p>
+                </div>
+                
+                <div class="concept-card" data-color="blue" data-tooltip="Single Root I/O Virtualization - hardware feature that allows multiple VMs to directly share a physical network device">
+                    <div class="concept-icon">🔀</div>
+                    <h3 class="concept-title">SR-IOV</h3>
+                    <p class="concept-desc">
+                        Allows a single physical network adapter to appear as multiple virtual adapters, 
+                        each dedicated to a tenant with hardware-enforced isolation.
+                    </p>
+                </div>
+                
+                <div class="concept-card" data-color="orange" data-tooltip="Virtual Extensible LAN - encapsulation protocol that creates isolated Layer 2 networks over a shared Layer 3 infrastructure">
+                    <div class="concept-icon">🌐</div>
+                    <h3 class="concept-title">VxLAN/VLAN</h3>
+                    <p class="concept-desc">
+                        Network virtualization technologies that create isolated "virtual networks" 
+                        over shared physical infrastructure, keeping tenant traffic completely separate.
+                    </p>
+                </div>
+                
+                <div class="concept-card" data-color="green" data-tooltip="Quality of Service - mechanisms to prioritize and guarantee network resources for different traffic types">
+                    <div class="concept-icon">📊</div>
+                    <h3 class="concept-title">Hardware QoS</h3>
+                    <p class="concept-desc">
+                        Traffic classification, rate limiting, and priority queuing implemented directly 
+                        in network hardware for guaranteed performance without software overhead.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="callout">
+                <div class="callout-title">💡 Why This Matters for AI</div>
+                <p class="callout-text">
+                    AI workloads are fundamentally different from traditional cloud computing. Distributed training 
+                    synchronizes gradients across thousands of GPUs multiple times per second, creating traffic patterns 
+                    that break conventional isolation mechanisms. Understanding wire-speed isolation is essential for 
+                    anyone building or operating modern AI infrastructure.
+                </p>
+            </div>
+        </section>
+        
+        <section class="section">
+            <h2 class="section-title">What You'll Learn</h2>
+            <p class="section-text">
+                This documentation series provides a comprehensive journey from fundamentals to implementation:
+            </p>
+            
+            <div class="concept-grid">
+                <div class="concept-card" data-color="purple">
+                    <div class="concept-icon">📖</div>
+                    <h3 class="concept-title">Chapters 1-3</h3>
+                    <p class="concept-desc">
+                        Foundations: Multi-tenant challenges, AI traffic patterns, and why microbursts 
+                        break traditional isolation approaches.
+                    </p>
+                </div>
+                
+                <div class="concept-card" data-color="blue">
+                    <div class="concept-icon">⚙️</div>
+                    <h3 class="concept-title">Chapters 4-7</h3>
+                    <p class="concept-desc">
+                        Deep dive into DPU architecture, BlueField generations, NVIDIA ASTRA, 
+                        and policy enforcement mechanisms.
+                    </p>
+                </div>
+                
+                <div class="concept-card" data-color="orange">
+                    <div class="concept-icon">📈</div>
+                    <h3 class="concept-title">Chapters 8-11</h3>
+                    <p class="concept-desc">
+                        Performance analysis, QoS strategies, real-world challenges, 
+                        and emerging solutions in the industry.
+                    </p>
+                </div>
+                
+                <div class="concept-card" data-color="green">
+                    <div class="concept-icon">🚀</div>
+                    <h3 class="concept-title">Chapters 12-15</h3>
+                    <p class="concept-desc">
+                        Practical implementation: recommendations, DOCA SDK development, 
+                        deployment patterns, and benchmarking.
+                    </p>
+                </div>
+            </div>
+        </section>
+        
+        <nav class="footer-nav">
+            <a href="index.html">← Back to Index</a>
+            <a href="chapter-02-multi-tenant.html">Chapter 2: Multi-Tenant AI Challenge →</a>
+        </nav>
+    </main>
+</body>
+</html>

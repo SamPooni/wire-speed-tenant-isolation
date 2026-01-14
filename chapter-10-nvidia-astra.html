@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 10: NVIDIA ASTRA | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #141414;
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --accent-teal: #5ac8fa;
+            --accent-pink: #ff375f;
+            --accent-yellow: #ffd60a;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; height: 64px;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 1000; display: flex; align-items: center; padding: 0 24px;
+        }
+        
+        .nav-back {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--accent-blue); text-decoration: none;
+            font-size: 14px; font-weight: 500;
+        }
+        .nav-back:hover { opacity: 0.7; }
+        .nav-back svg { width: 20px; height: 20px; }
+        
+        .nav-title {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            font-size: 14px; font-weight: 600; color: var(--text-secondary);
+        }
+        
+        .hero {
+            padding: 140px 24px 80px; max-width: 900px; margin: 0 auto;
+        }
+        
+        .chapter-badge {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, rgba(0,113,227,0.2), rgba(100,210,255,0.2));
+            border: 1px solid rgba(0,113,227,0.3);
+            padding: 10px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600; color: var(--accent-blue);
+            margin-bottom: 24px;
+        }
+        
+        .chapter-badge span:first-child {
+            background: var(--accent-blue); color: white;
+            padding: 4px 10px; border-radius: 100px; font-size: 12px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px); font-weight: 700;
+            letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 24px;
+        }
+        
+        .hero-desc {
+            font-size: 20px; color: var(--text-secondary); max-width: 700px;
+        }
+        
+        .content {
+            max-width: 900px; margin: 0 auto; padding: 0 24px 120px;
+        }
+        
+        .section { margin-bottom: 80px; }
+        
+        .section-label {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--accent-blue); margin-bottom: 12px;
+        }
+        
+        .section h2 {
+            font-size: 32px; font-weight: 700;
+            letter-spacing: -0.02em; margin-bottom: 20px;
+        }
+        
+        .section p {
+            color: var(--text-secondary); font-size: 17px; margin-bottom: 24px;
+        }
+        
+        /* Stats Bar */
+        .stats-bar {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+            margin-bottom: 60px;
+        }
+        
+        .stat-item {
+            background: var(--bg-card);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid var(--border-subtle);
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-item:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 8px 32px rgba(0,113,227,0.15);
+        }
+        
+        .stat-value {
+            font-size: 32px; font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+        
+        .stat-label {
+            font-size: 13px; color: var(--text-secondary);
+        }
+        
+        /* Architecture Diagram */
+        .architecture-diagram {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 40px;
+        }
+        
+        .arch-title {
+            font-size: 14px; font-weight: 600;
+            color: var(--accent-blue); margin-bottom: 32px;
+            text-transform: uppercase; letter-spacing: 0.1em;
+        }
+        
+        .arch-layers {
+            display: flex; flex-direction: column; gap: 20px;
+        }
+        
+        .arch-layer {
+            display: grid; grid-template-columns: 140px 1fr; gap: 20px; align-items: center;
+        }
+        
+        .layer-label {
+            font-size: 13px; font-weight: 600;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+        
+        .layer-content {
+            display: flex; gap: 12px; flex-wrap: wrap;
+        }
+        
+        .layer-box {
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 14px; font-weight: 500;
+            cursor: help;
+            transition: all 0.3s ease;
+            flex: 1; min-width: 120px;
+            text-align: center;
+        }
+        
+        .layer-box:hover {
+            transform: scale(1.03);
+        }
+        
+        .layer-orchestration { background: rgba(191,90,242,0.15); border: 1px solid rgba(191,90,242,0.3); color: var(--accent-purple); }
+        .layer-control { background: rgba(0,113,227,0.15); border: 1px solid rgba(0,113,227,0.3); color: var(--accent-blue); }
+        .layer-data { background: rgba(100,210,255,0.15); border: 1px solid rgba(100,210,255,0.3); color: var(--accent-cyan); }
+        .layer-hardware { background: rgba(48,209,88,0.15); border: 1px solid rgba(48,209,88,0.3); color: var(--accent-green); }
+        
+        /* Flow Arrows */
+        .flow-connector {
+            display: flex; justify-content: center; padding: 8px 0;
+        }
+        
+        .flow-arrow {
+            width: 2px; height: 24px;
+            background: linear-gradient(180deg, var(--accent-purple), var(--accent-cyan));
+        }
+        
+        /* Security Model */
+        .security-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+            margin-bottom: 40px;
+        }
+        
+        .security-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 28px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .security-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 12px 40px rgba(100,210,255,0.1);
+        }
+        
+        .security-icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; margin-bottom: 16px;
+        }
+        
+        .security-card:nth-child(1) .security-icon { background: rgba(0,113,227,0.2); }
+        .security-card:nth-child(2) .security-icon { background: rgba(191,90,242,0.2); }
+        .security-card:nth-child(3) .security-icon { background: rgba(48,209,88,0.2); }
+        .security-card:nth-child(4) .security-icon { background: rgba(255,159,10,0.2); }
+        .security-card:nth-child(5) .security-icon { background: rgba(100,210,255,0.2); }
+        .security-card:nth-child(6) .security-icon { background: rgba(255,69,58,0.2); }
+        
+        .security-card h4 {
+            font-size: 16px; font-weight: 600; margin-bottom: 8px;
+        }
+        
+        .security-card p {
+            font-size: 14px; color: var(--text-tertiary); margin: 0;
+        }
+        
+        /* Isolation Zones */
+        .zones-diagram {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 40px;
+        }
+        
+        .zones-container {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+        }
+        
+        .zone {
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .zone:hover {
+            transform: scale(1.02);
+        }
+        
+        .zone-host {
+            background: linear-gradient(135deg, rgba(255,69,58,0.1), rgba(255,69,58,0.05));
+            border: 2px solid rgba(255,69,58,0.3);
+        }
+        
+        .zone-dpu {
+            background: linear-gradient(135deg, rgba(48,209,88,0.1), rgba(48,209,88,0.05));
+            border: 2px solid rgba(48,209,88,0.3);
+        }
+        
+        .zone-network {
+            background: linear-gradient(135deg, rgba(0,113,227,0.1), rgba(0,113,227,0.05));
+            border: 2px solid rgba(0,113,227,0.3);
+        }
+        
+        .zone-label {
+            font-size: 12px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.1em;
+            margin-bottom: 16px;
+        }
+        
+        .zone-host .zone-label { color: var(--accent-red); }
+        .zone-dpu .zone-label { color: var(--accent-green); }
+        .zone-network .zone-label { color: var(--accent-blue); }
+        
+        .zone-items {
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        
+        .zone-item {
+            background: rgba(255,255,255,0.05);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
+        /* Trust Boundaries */
+        .trust-flow {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 40px;
+        }
+        
+        .trust-stages {
+            display: flex; align-items: center; justify-content: space-between;
+            position: relative;
+        }
+        
+        .trust-stage {
+            text-align: center;
+            flex: 1;
+            position: relative;
+            z-index: 1;
+            cursor: help;
+        }
+        
+        .trust-stage::after {
+            content: '';
+            position: absolute;
+            top: 30px; left: 50%; right: -50%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+        }
+        
+        .trust-stage:last-child::after { display: none; }
+        
+        .trust-circle {
+            width: 60px; height: 60px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; margin: 0 auto 12px;
+            position: relative; z-index: 2;
+        }
+        
+        .trust-stage:nth-child(1) .trust-circle { background: rgba(255,69,58,0.2); border: 2px solid var(--accent-red); }
+        .trust-stage:nth-child(2) .trust-circle { background: rgba(255,159,10,0.2); border: 2px solid var(--accent-orange); }
+        .trust-stage:nth-child(3) .trust-circle { background: rgba(255,214,10,0.2); border: 2px solid var(--accent-yellow); }
+        .trust-stage:nth-child(4) .trust-circle { background: rgba(48,209,88,0.2); border: 2px solid var(--accent-green); }
+        
+        .trust-name {
+            font-size: 14px; font-weight: 600; margin-bottom: 4px;
+        }
+        
+        .trust-desc {
+            font-size: 12px; color: var(--text-tertiary);
+        }
+        
+        /* Comparison Table */
+        .comparison-table {
+            background: var(--bg-card);
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 40px;
+        }
+        
+        .comparison-table table {
+            width: 100%; border-collapse: collapse;
+        }
+        
+        .comparison-table th {
+            background: var(--bg-secondary);
+            padding: 16px 20px;
+            text-align: left;
+            font-size: 13px; font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .comparison-table td {
+            padding: 16px 20px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: help;
+        }
+        
+        .comparison-table tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+        
+        .status-good { color: var(--accent-green); }
+        .status-warn { color: var(--accent-orange); }
+        .status-bad { color: var(--accent-red); }
+        
+        /* Orchestration Flow */
+        .orchestration-flow {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 40px;
+        }
+        
+        .orch-steps {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+        }
+        
+        .orch-step {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px 16px;
+            text-align: center;
+            position: relative;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .orch-step:hover {
+            transform: translateY(-4px);
+        }
+        
+        .orch-step::after {
+            content: '→';
+            position: absolute;
+            right: -10px; top: 50%;
+            transform: translateY(-50%);
+            color: var(--accent-blue);
+            font-size: 18px;
+        }
+        
+        .orch-step:last-child::after { display: none; }
+        
+        .orch-num {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            color: white;
+            font-size: 14px; font-weight: 600;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 12px;
+        }
+        
+        .orch-step:nth-child(2) .orch-num { background: var(--accent-purple); }
+        .orch-step:nth-child(3) .orch-num { background: var(--accent-cyan); }
+        .orch-step:nth-child(4) .orch-num { background: var(--accent-green); }
+        .orch-step:nth-child(5) .orch-num { background: var(--accent-orange); }
+        
+        .orch-name {
+            font-size: 13px; font-weight: 600; margin-bottom: 4px;
+        }
+        
+        .orch-time {
+            font-size: 11px; color: var(--text-tertiary);
+        }
+        
+        /* Chapter Navigation */
+        .chapter-nav {
+            display: flex; justify-content: space-between;
+            max-width: 900px; margin: 0 auto;
+            padding: 40px 24px; border-top: 1px solid var(--border-subtle);
+        }
+        
+        .nav-link {
+            display: flex; flex-direction: column; gap: 4px;
+            text-decoration: none; padding: 16px 24px;
+            border-radius: 12px; transition: all 0.3s ease;
+            background: var(--bg-card);
+        }
+        
+        .nav-link:hover {
+            background: var(--bg-secondary);
+            transform: translateY(-2px);
+        }
+        
+        .nav-link .direction {
+            font-size: 12px; color: var(--accent-blue); font-weight: 500;
+        }
+        
+        .nav-link .title {
+            font-size: 15px; color: var(--text-primary); font-weight: 600;
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--accent-blue);
+            border-radius: 12px;
+            padding: 16px 20px;
+            max-width: 320px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.2s ease;
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .tooltip-title {
+            font-size: 14px; font-weight: 600;
+            color: var(--accent-cyan); margin-bottom: 6px;
+        }
+        
+        .tooltip-text {
+            font-size: 13px; color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .security-grid { grid-template-columns: 1fr; }
+            .zones-container { grid-template-columns: 1fr; }
+            .orch-steps { grid-template-columns: 1fr; }
+            .orch-step::after { display: none; }
+            .arch-layer { grid-template-columns: 1fr; }
+            .layer-label { text-align: left; }
+            .trust-stages { flex-direction: column; gap: 24px; }
+            .trust-stage::after { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html" class="nav-back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
+            </svg>
+            Back to Index
+        </a>
+        <span class="nav-title">Wire-Speed Tenant Isolation</span>
+    </nav>
+    
+    <header class="hero">
+        <div class="chapter-badge">
+            <span>10</span>
+            <span>NVIDIA ASTRA Architecture</span>
+        </div>
+        <h1>The Complete<br>Security Framework</h1>
+        <p class="hero-desc">NVIDIA ASTRA provides the control plane, orchestration, and security model that ties DPU hardware to a complete tenant isolation solution.</p>
+    </header>
+    
+    <main class="content">
+        <div class="stats-bar">
+            <div class="stat-item" data-tooltip="stat-zones">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Security Zones</div>
+            </div>
+            <div class="stat-item" data-tooltip="stat-layers">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Architecture Layers</div>
+            </div>
+            <div class="stat-item" data-tooltip="stat-time">
+                <div class="stat-value">&lt;1s</div>
+                <div class="stat-label">Tenant Provision</div>
+            </div>
+            <div class="stat-item" data-tooltip="stat-isolation">
+                <div class="stat-value">100%</div>
+                <div class="stat-label">Hardware Isolation</div>
+            </div>
+        </div>
+        
+        <section class="section">
+            <div class="section-label">Architecture Overview</div>
+            <h2>Layered Security Model</h2>
+            <p>ASTRA implements defense-in-depth through multiple architectural layers, each providing distinct security guarantees. The key insight is separating the control plane from the data plane—tenant traffic never touches the control infrastructure.</p>
+            
+            <div class="architecture-diagram">
+                <div class="arch-title">ASTRA Architecture Stack</div>
+                <div class="arch-layers">
+                    <div class="arch-layer">
+                        <div class="layer-label">Orchestration</div>
+                        <div class="layer-content">
+                            <div class="layer-box layer-orchestration" data-tooltip="arch-k8s">Kubernetes</div>
+                            <div class="layer-box layer-orchestration" data-tooltip="arch-helm">Helm Charts</div>
+                            <div class="layer-box layer-orchestration" data-tooltip="arch-operator">ASTRA Operator</div>
+                        </div>
+                    </div>
+                    <div class="flow-connector"><div class="flow-arrow"></div></div>
+                    <div class="arch-layer">
+                        <div class="layer-label">Control Plane</div>
+                        <div class="layer-content">
+                            <div class="layer-box layer-control" data-tooltip="arch-api">REST API</div>
+                            <div class="layer-box layer-control" data-tooltip="arch-policy">Policy Engine</div>
+                            <div class="layer-box layer-control" data-tooltip="arch-state">State Manager</div>
+                        </div>
+                    </div>
+                    <div class="flow-connector"><div class="flow-arrow"></div></div>
+                    <div class="arch-layer">
+                        <div class="layer-label">Data Plane</div>
+                        <div class="layer-content">
+                            <div class="layer-box layer-data" data-tooltip="arch-doca">DOCA SDK</div>
+                            <div class="layer-box layer-data" data-tooltip="arch-flow">Flow Tables</div>
+                            <div class="layer-box layer-data" data-tooltip="arch-accel">Accelerators</div>
+                        </div>
+                    </div>
+                    <div class="flow-connector"><div class="flow-arrow"></div></div>
+                    <div class="arch-layer">
+                        <div class="layer-label">Hardware</div>
+                        <div class="layer-content">
+                            <div class="layer-box layer-hardware" data-tooltip="arch-bf">BlueField DPU</div>
+                            <div class="layer-box layer-hardware" data-tooltip="arch-nic">ConnectX NIC</div>
+                            <div class="layer-box layer-hardware" data-tooltip="arch-switch">Spectrum Switch</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <div class="section-label">Security Model</div>
+            <h2>Six Pillars of Protection</h2>
+            <p>ASTRA's security model is built on six foundational principles that work together to provide comprehensive tenant isolation.</p>
+            
+            <div class="security-grid">
+                <div class="security-card" data-tooltip="sec-hw">
+                    <div class="security-icon">🔒</div>
+                    <h4>Hardware Root of Trust</h4>
+                    <p>Secure boot chain and TPM-based attestation ensure DPU integrity.</p>
+                </div>
+                <div class="security-card" data-tooltip="sec-network">
+                    <div class="security-icon">🌐</div>
+                    <h4>Network Segmentation</h4>
+                    <p>VLANs, VXLANs, and hardware-enforced tenant boundaries.</p>
+                </div>
+                <div class="security-card" data-tooltip="sec-crypto">
+                    <div class="security-icon">🔐</div>
+                    <h4>Encryption Everywhere</h4>
+                    <p>Line-rate IPSec and TLS for all inter-tenant traffic.</p>
+                </div>
+                <div class="security-card" data-tooltip="sec-policy">
+                    <div class="security-icon">📋</div>
+                    <h4>Policy Enforcement</h4>
+                    <p>Hardware-enforced ACLs that can't be bypassed by software.</p>
+                </div>
+                <div class="security-card" data-tooltip="sec-audit">
+                    <div class="security-icon">📊</div>
+                    <h4>Audit & Telemetry</h4>
+                    <p>Per-flow logging and real-time anomaly detection.</p>
+                </div>
+                <div class="security-card" data-tooltip="sec-blast">
+                    <div class="security-icon">🛡️</div>
+                    <h4>Blast Radius Containment</h4>
+                    <p>Compromised tenant cannot affect other tenants or infrastructure.</p>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <div class="section-label">Isolation Zones</div>
+            <h2>Trust Domain Separation</h2>
+            <p>ASTRA divides the system into three distinct trust domains, with the DPU acting as the security boundary between untrusted host workloads and the trusted network fabric.</p>
+            
+            <div class="zones-diagram">
+                <div class="arch-title">Security Zone Architecture</div>
+                <div class="zones-container">
+                    <div class="zone zone-host" data-tooltip="zone-host">
+                        <div class="zone-label">Untrusted Zone (Host)</div>
+                        <div class="zone-items">
+                            <div class="zone-item">Tenant VMs</div>
+                            <div class="zone-item">Containers</div>
+                            <div class="zone-item">User Applications</div>
+                            <div class="zone-item">Guest OS</div>
+                        </div>
+                    </div>
+                    <div class="zone zone-dpu" data-tooltip="zone-dpu">
+                        <div class="zone-label">Security Boundary (DPU)</div>
+                        <div class="zone-items">
+                            <div class="zone-item">Policy Engine</div>
+                            <div class="zone-item">Flow Tables</div>
+                            <div class="zone-item">Crypto Engine</div>
+                            <div class="zone-item">Telemetry</div>
+                        </div>
+                    </div>
+                    <div class="zone zone-network" data-tooltip="zone-network">
+                        <div class="zone-label">Trusted Zone (Network)</div>
+                        <div class="zone-items">
+                            <div class="zone-item">Control Plane</div>
+                            <div class="zone-item">Management</div>
+                            <div class="zone-item">Fabric Switches</div>
+                            <div class="zone-item">Storage</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <div class="section-label">Trust Verification</div>
+            <h2>Packet Trust Chain</h2>
+            <p>Every packet traversing ASTRA goes through a multi-stage trust verification process. The DPU validates identity, policy, and encryption before forwarding.</p>
+            
+            <div class="trust-flow">
+                <div class="arch-title">Trust Verification Pipeline</div>
+                <div class="trust-stages">
+                    <div class="trust-stage" data-tooltip="trust-ingress">
+                        <div class="trust-circle">📥</div>
+                        <div class="trust-name">Ingress</div>
+                        <div class="trust-desc">Untrusted packet arrives</div>
+                    </div>
+                    <div class="trust-stage" data-tooltip="trust-identify">
+                        <div class="trust-circle">🆔</div>
+                        <div class="trust-name">Identify</div>
+                        <div class="trust-desc">Tenant ID validated</div>
+                    </div>
+                    <div class="trust-stage" data-tooltip="trust-policy">
+                        <div class="trust-circle">✓</div>
+                        <div class="trust-name">Policy</div>
+                        <div class="trust-desc">Rules enforced</div>
+                    </div>
+                    <div class="trust-stage" data-tooltip="trust-forward">
+                        <div class="trust-circle">📤</div>
+                        <div class="trust-name">Forward</div>
+                        <div class="trust-desc">Trusted & encrypted</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="section">
+            <div class="section-label">Traditional vs ASTRA</div>
+            <h2>Security Comparison</h2>
+            <p>Traditional software-based isolation leaves significant attack surface. ASTRA's hardware-based approach eliminates entire classes of vulnerabilities.</p>
+            
+            <div class="comparison-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Security Aspect</th>
+                            <th>Traditional (Software)</th>
+                            <th>ASTRA (Hardware)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td data-tooltip="cmp-bypass">Policy Bypass Risk</td>
+                            <td class="status-bad" data-tooltip="cmp-bypass-sw">High (kernel exploits)</td>
+                            <td class="status-good" data-tooltip="cmp-bypass-hw">None (hardware-enforced)</td>
+                        </tr>
+                        <tr>
+                            <td data-tooltip="cmp-perf">Performance Impact</td>
+                            <td class="status-warn" data-tooltip="cmp-perf-sw">10-30% overhead</td>
+                            <td class="status-good" data-tooltip="cmp-perf-hw">0% (line rate)</td>
+                        </tr>
+                        <tr>
+                            <td data-tooltip="cmp-side">Side-Channel Exposure</td>
+                            <td class="status-bad" data-tooltip="cmp-side-sw">Multiple vectors</td>
+                            <td class="status-good" data-tooltip="cmp-side-hw">Hardware isolated</td>
+                        </tr>
+                        <tr>
+                            <td data-tooltip="cmp-audit">Audit Completeness</td>
+                            <td class="status-warn" data-tooltip="cmp-audit-sw">Best-effort logging</td>
+                            <td class="status-good" data-tooltip="cmp-audit-hw">100% flow visibility</td>
+                        </tr>
+                        <tr>
+                            <td data-tooltip="cmp-crypto">Encryption Coverage</td>
+                            <td class="status-warn" data-tooltip="cmp-crypto-sw">Performance limited</td>
+                            <td class="status-good" data-tooltip="cmp-crypto-hw">All traffic at line rate</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        
+        <section class="section">
+            <div class="section-label">Tenant Lifecycle</div>
+            <h2>Orchestration Workflow</h2>
+            <p>ASTRA automates the complete tenant lifecycle—from provisioning to teardown—with sub-second latency and zero-touch security configuration.</p>
+            
+            <div class="orchestration-flow">
+                <div class="arch-title">Tenant Provisioning Pipeline</div>
+                <div class="orch-steps">
+                    <div class="orch-step" data-tooltip="orch-request">
+                        <div class="orch-num">1</div>
+                        <div class="orch-name">API Request</div>
+                        <div class="orch-time">~10ms</div>
+                    </div>
+                    <div class="orch-step" data-tooltip="orch-validate">
+                        <div class="orch-num">2</div>
+                        <div class="orch-name">Validation</div>
+                        <div class="orch-time">~50ms</div>
+                    </div>
+                    <div class="orch-step" data-tooltip="orch-policy">
+                        <div class="orch-num">3</div>
+                        <div class="orch-name">Policy Gen</div>
+                        <div class="orch-time">~100ms</div>
+                    </div>
+                    <div class="orch-step" data-tooltip="orch-program">
+                        <div class="orch-num">4</div>
+                        <div class="orch-name">DPU Program</div>
+                        <div class="orch-time">~200ms</div>
+                    </div>
+                    <div class="orch-step" data-tooltip="orch-active">
+                        <div class="orch-num">5</div>
+                        <div class="orch-name">Active</div>
+                        <div class="orch-time">Ready!</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="chapter-nav">
+        <a href="chapter-09-hardware-evolution.html" class="nav-link">
+            <span class="direction">← Previous</span>
+            <span class="title">Hardware Evolution</span>
+        </a>
+        <a href="chapter-11-real-world-challenges.html" class="nav-link">
+            <span class="direction">Next →</span>
+            <span class="title">Real-World Challenges</span>
+        </a>
+    </footer>
+    
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+    </div>
+    
+    <script>
+        const tooltips = {
+            'stat-zones': { title: '3 Security Zones', text: 'Untrusted (host), Security Boundary (DPU), Trusted (network). Clear separation prevents lateral movement.' },
+            'stat-layers': { title: '4 Architecture Layers', text: 'Orchestration → Control Plane → Data Plane → Hardware. Each layer adds security guarantees.' },
+            'stat-time': { title: '<1 Second Provisioning', text: 'Complete tenant setup including network, policies, and encryption in under a second.' },
+            'stat-isolation': { title: '100% Hardware Isolation', text: 'Every tenant is isolated at the hardware level. No software vulnerability can break isolation.' },
+            
+            'arch-k8s': { title: 'Kubernetes Orchestration', text: 'Native K8s integration for managing DPU resources. NetworkPolicy CRDs for tenant isolation.' },
+            'arch-helm': { title: 'Helm Charts', text: 'Pre-packaged deployment templates for common isolation scenarios. Version-controlled configs.' },
+            'arch-operator': { title: 'ASTRA Operator', text: 'Custom Kubernetes operator that reconciles desired state with actual DPU configuration.' },
+            'arch-api': { title: 'REST API', text: 'OpenAPI-documented interface for programmatic tenant management. Authenticated and rate-limited.' },
+            'arch-policy': { title: 'Policy Engine', text: 'Translates high-level intent into low-level DPU rules. Validates for conflicts and completeness.' },
+            'arch-state': { title: 'State Manager', text: 'Distributed consistent store for policy state. Survives control plane restarts.' },
+            'arch-doca': { title: 'DOCA SDK', text: 'NVIDIA\'s data center infrastructure SDK. Abstracts DPU hardware for portability.' },
+            'arch-flow': { title: 'Flow Tables', text: 'Hardware flow tables in DPU. Up to 4M concurrent flows per device.' },
+            'arch-accel': { title: 'Accelerators', text: 'Dedicated engines for crypto, regex, compression. All at line rate.' },
+            'arch-bf': { title: 'BlueField DPU', text: 'The hardware enforcement point. Sits between host and network.' },
+            'arch-nic': { title: 'ConnectX NIC', text: 'High-performance network adapter. 400 Gbps with RDMA support.' },
+            'arch-switch': { title: 'Spectrum Switch', text: 'Fabric switches with matching ASTRA support. End-to-end policy enforcement.' },
+            
+            'sec-hw': { title: 'Hardware Root of Trust', text: 'Secure boot verifies DPU firmware integrity. TPM attestation proves authentic hardware.' },
+            'sec-network': { title: 'Network Segmentation', text: 'Hardware VLAN/VXLAN enforcement. Packets physically cannot cross tenant boundaries.' },
+            'sec-crypto': { title: 'Encryption Everywhere', text: 'IPSec and TLS at 400 Gbps. Zero performance penalty for encryption.' },
+            'sec-policy': { title: 'Policy Enforcement', text: 'ACLs in hardware flow tables. Cannot be bypassed by host software.' },
+            'sec-audit': { title: 'Audit & Telemetry', text: 'Every packet counted. Flow logs exported for SIEM integration.' },
+            'sec-blast': { title: 'Blast Radius Containment', text: 'Compromised tenant limited to own resources. No path to other tenants or control plane.' },
+            
+            'zone-host': { title: 'Untrusted Zone', text: 'Tenant workloads run here. Assumed to be potentially malicious. No trust granted.' },
+            'zone-dpu': { title: 'Security Boundary', text: 'The DPU is the gatekeeper. All host traffic must pass through DPU\'s hardware filters.' },
+            'zone-network': { title: 'Trusted Zone', text: 'Infrastructure and control plane. Protected by DPU from all tenant workloads.' },
+            
+            'trust-ingress': { title: 'Ingress (Untrusted)', text: 'Packet arrives from host. No trust assumed. May be malicious or malformed.' },
+            'trust-identify': { title: 'Identity Validation', text: 'Extract tenant ID from packet headers. Verify against known tenant database.' },
+            'trust-policy': { title: 'Policy Enforcement', text: 'Apply all ACLs, rate limits, and routing rules. Drop non-compliant packets.' },
+            'trust-forward': { title: 'Trusted Forward', text: 'Packet passes all checks. Encrypted and forwarded to destination.' },
+            
+            'cmp-bypass': { title: 'Policy Bypass Risk', text: 'Can tenant traffic circumvent security policies? Critical for multi-tenant isolation.' },
+            'cmp-bypass-sw': { title: 'Software: High Risk', text: 'Kernel exploits, container escapes, hypervisor bugs can all bypass policies.' },
+            'cmp-bypass-hw': { title: 'Hardware: No Risk', text: 'Policies enforced in DPU hardware. No software path exists to bypass.' },
+            'cmp-perf': { title: 'Performance Impact', text: 'Does security enforcement reduce workload performance?' },
+            'cmp-perf-sw': { title: 'Software: 10-30% Overhead', text: 'iptables, OVS, and encryption consume significant CPU cycles.' },
+            'cmp-perf-hw': { title: 'Hardware: 0% Overhead', text: 'All processing offloaded. Host CPU does no security work.' },
+            'cmp-side': { title: 'Side-Channel Exposure', text: 'Timing attacks, cache attacks, speculative execution vulnerabilities.' },
+            'cmp-side-sw': { title: 'Software: Multiple Vectors', text: 'Spectre, Meltdown, cache timing—shared CPU creates many side channels.' },
+            'cmp-side-hw': { title: 'Hardware: Isolated', text: 'DPU is separate chip. No shared caches or speculative execution with host.' },
+            'cmp-audit': { title: 'Audit Completeness', text: 'Can all network activity be logged and analyzed?' },
+            'cmp-audit-sw': { title: 'Software: Best-Effort', text: 'High packet rates cause drops. Attackers can flood to evade logging.' },
+            'cmp-audit-hw': { title: 'Hardware: 100% Visibility', text: 'Hardware counters never drop. Every packet accounted at line rate.' },
+            'cmp-crypto': { title: 'Encryption Coverage', text: 'Can all tenant traffic be encrypted without performance penalty?' },
+            'cmp-crypto-sw': { title: 'Software: Limited', text: 'CPU encryption caps at ~50 Gbps. Most traffic sent unencrypted.' },
+            'cmp-crypto-hw': { title: 'Hardware: Full Coverage', text: '400 Gbps AES-GCM in dedicated engines. All traffic encrypted.' },
+            
+            'orch-request': { title: 'Step 1: API Request', text: 'Tenant creation request via REST API or Kubernetes CRD. ~10ms for parsing and auth.' },
+            'orch-validate': { title: 'Step 2: Validation', text: 'Check resource availability, policy conflicts, quota limits. ~50ms for all checks.' },
+            'orch-policy': { title: 'Step 3: Policy Generation', text: 'Convert high-level intent to DPU flow rules. ~100ms including optimization.' },
+            'orch-program': { title: 'Step 4: DPU Programming', text: 'Push flow rules to DPU hardware. ~200ms for rule installation.' },
+            'orch-active': { title: 'Step 5: Active', text: 'Tenant is live! Total time under 1 second. Full isolation from moment one.' }
+        };
+        
+        const tooltip = document.getElementById('tooltip');
+        const tooltipTitle = tooltip.querySelector('.tooltip-title');
+        const tooltipText = tooltip.querySelector('.tooltip-text');
+        
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const data = tooltips[el.dataset.tooltip];
+                if (!data) return;
+                
+                tooltipTitle.textContent = data.title;
+                tooltipText.textContent = data.text;
+                
+                const rect = el.getBoundingClientRect();
+                tooltip.style.left = rect.left + rect.width/2 - tooltip.offsetWidth/2 + 'px';
+                tooltip.style.top = rect.top - tooltip.offsetHeight - 12 + 'px';
+                
+                if (parseFloat(tooltip.style.left) < 10) tooltip.style.left = '10px';
+                if (parseFloat(tooltip.style.left) + tooltip.offsetWidth > window.innerWidth - 10) {
+                    tooltip.style.left = (window.innerWidth - tooltip.offsetWidth - 10) + 'px';
+                }
+                
+                tooltip.classList.add('visible');
+            });
+            
+            el.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>

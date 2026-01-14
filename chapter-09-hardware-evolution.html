@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 9: Hardware Evolution | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #141414;
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --accent-teal: #5ac8fa;
+            --accent-pink: #ff375f;
+            --accent-yellow: #ffd60a;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; height: 64px;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 1000; display: flex; align-items: center; padding: 0 24px;
+        }
+        
+        .nav-back {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--accent-blue); text-decoration: none;
+            font-size: 14px; font-weight: 500;
+        }
+        .nav-back:hover { opacity: 0.7; }
+        .nav-back svg { width: 20px; height: 20px; }
+        
+        .nav-title {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            font-size: 14px; font-weight: 600; color: var(--text-secondary);
+        }
+        
+        .hero {
+            padding: 140px 24px 80px; max-width: 900px; margin: 0 auto;
+        }
+        
+        .chapter-badge {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, rgba(191,90,242,0.2), rgba(0,113,227,0.2));
+            border: 1px solid rgba(191,90,242,0.3);
+            padding: 10px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600; color: var(--accent-purple);
+            margin-bottom: 24px;
+        }
+        
+        .chapter-badge span:first-child {
+            background: var(--accent-purple); color: white;
+            padding: 4px 10px; border-radius: 100px; font-size: 12px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px); font-weight: 700;
+            letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 24px;
+        }
+        
+        .hero-desc {
+            font-size: 20px; color: var(--text-secondary); max-width: 700px;
+        }
+        
+        .content {
+            max-width: 900px; margin: 0 auto; padding: 0 24px 120px;
+        }
+        
+        .section { margin-bottom: 80px; }
+        
+        .section-label {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--accent-purple); margin-bottom: 12px;
+        }
+        
+        .section h2 {
+            font-size: 32px; font-weight: 700;
+            letter-spacing: -0.02em; margin-bottom: 20px;
+        }
+        
+        .section p {
+            color: var(--text-secondary); font-size: 17px; margin-bottom: 24px;
+        }
+        
+        /* Timeline */
+        .timeline-container {
+            position: relative;
+            padding-left: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .timeline-line {
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--accent-blue), var(--accent-purple), var(--accent-green), var(--accent-cyan));
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 40px;
+        }
+        
+        .timeline-dot {
+            position: absolute;
+            left: -33px;
+            top: 8px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 3px solid;
+        }
+        
+        .timeline-item.bf2 .timeline-dot { background: var(--accent-blue); border-color: rgba(0,113,227,0.3); }
+        .timeline-item.bf3 .timeline-dot { background: var(--accent-purple); border-color: rgba(191,90,242,0.3); }
+        .timeline-item.bf3s .timeline-dot { background: var(--accent-green); border-color: rgba(48,209,88,0.3); }
+        .timeline-item.bf4 .timeline-dot { background: var(--accent-cyan); border-color: rgba(100,210,255,0.3); }
+        
+        .timeline-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 28px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .timeline-card:hover {
+            transform: translateX(8px);
+        }
+        
+        .timeline-item.bf2 .timeline-card { border-left: 4px solid var(--accent-blue); }
+        .timeline-item.bf3 .timeline-card { border-left: 4px solid var(--accent-purple); }
+        .timeline-item.bf3s .timeline-card { border-left: 4px solid var(--accent-green); }
+        .timeline-item.bf4 .timeline-card { border-left: 4px solid var(--accent-cyan); }
+        
+        .timeline-year {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 8px;
+        }
+        
+        .timeline-item.bf2 .timeline-year { color: var(--accent-blue); }
+        .timeline-item.bf3 .timeline-year { color: var(--accent-purple); }
+        .timeline-item.bf3s .timeline-year { color: var(--accent-green); }
+        .timeline-item.bf4 .timeline-year { color: var(--accent-cyan); }
+        
+        .timeline-card h3 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        
+        .timeline-card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        
+        .timeline-specs {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        
+        .spec-item {
+            background: rgba(0,0,0,0.3);
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .spec-item .value {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        
+        .spec-item .label {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+        }
+        
+        /* Comparison Table */
+        .compare-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+            overflow-x: auto;
+        }
+        
+        .compare-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+        
+        .compare-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+        }
+        
+        .compare-table th {
+            padding: 16px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 700;
+            border-bottom: 2px solid var(--border-subtle);
+        }
+        
+        .compare-table th:first-child {
+            text-align: left;
+        }
+        
+        .compare-table th.bf2 { color: var(--accent-blue); }
+        .compare-table th.bf3 { color: var(--accent-purple); }
+        .compare-table th.bf3s { color: var(--accent-green); }
+        .compare-table th.bf4 { color: var(--accent-cyan); }
+        
+        .compare-table td {
+            padding: 14px 16px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+            cursor: help;
+        }
+        
+        .compare-table td:first-child {
+            text-align: left;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
+        .compare-table tr:hover td {
+            background: rgba(191,90,242,0.05);
+        }
+        
+        .compare-table .highlight {
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+        
+        /* Chip Visualization */
+        .chip-evolution {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        
+        .chip-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .chip-card:hover {
+            transform: translateY(-8px);
+        }
+        
+        .chip-card.bf2 { border-top: 4px solid var(--accent-blue); }
+        .chip-card.bf3 { border-top: 4px solid var(--accent-purple); }
+        .chip-card.bf3s { border-top: 4px solid var(--accent-green); }
+        .chip-card.bf4 { border-top: 4px solid var(--accent-cyan); }
+        
+        .chip-visual {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 16px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            position: relative;
+        }
+        
+        .chip-card.bf2 .chip-visual { background: linear-gradient(135deg, rgba(0,113,227,0.3), rgba(0,113,227,0.1)); }
+        .chip-card.bf3 .chip-visual { background: linear-gradient(135deg, rgba(191,90,242,0.3), rgba(191,90,242,0.1)); }
+        .chip-card.bf3s .chip-visual { background: linear-gradient(135deg, rgba(48,209,88,0.3), rgba(48,209,88,0.1)); }
+        .chip-card.bf4 .chip-visual { background: linear-gradient(135deg, rgba(100,210,255,0.3), rgba(100,210,255,0.1)); }
+        
+        .chip-name {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .chip-year {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-bottom: 12px;
+        }
+        
+        .chip-stat {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .chip-card.bf2 .chip-stat { color: var(--accent-blue); }
+        .chip-card.bf3 .chip-stat { color: var(--accent-purple); }
+        .chip-card.bf3s .chip-stat { color: var(--accent-green); }
+        .chip-card.bf4 .chip-stat { color: var(--accent-cyan); }
+        
+        .chip-stat-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+        
+        /* Performance Graph */
+        .graph-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .graph-container h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+        
+        .graph-area {
+            height: 200px;
+            position: relative;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .graph-svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .graph-legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 20px;
+        }
+        
+        .legend-line {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+        
+        .legend-line .line {
+            width: 24px;
+            height: 3px;
+            border-radius: 2px;
+        }
+        
+        /* Feature Cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        
+        .feature-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-purple);
+        }
+        
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, rgba(191,90,242,0.2), rgba(255,55,95,0.2));
+        }
+        
+        .feature-card h4 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .feature-card p {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            line-height: 1.5;
+        }
+        
+        /* Navigation Footer */
+        .chapter-nav {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 24px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            text-decoration: none;
+            padding: 16px 24px;
+            border-radius: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            transition: all 0.3s ease;
+            max-width: 280px;
+        }
+        
+        .nav-link:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+        
+        .nav-link .direction {
+            font-size: 12px;
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+        
+        .nav-link .title {
+            font-size: 15px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--accent-purple);
+            border-radius: 12px;
+            padding: 16px;
+            max-width: 320px;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+        
+        .tooltip.visible { opacity: 1; }
+        
+        .tooltip-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent-purple);
+            margin-bottom: 6px;
+        }
+        
+        .tooltip-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid var(--accent-purple);
+        }
+        
+        @media (max-width: 768px) {
+            .chip-evolution { grid-template-columns: repeat(2, 1fr); }
+            .feature-grid { grid-template-columns: 1fr; }
+            .timeline-specs { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html" class="nav-back">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to Overview
+        </a>
+        <span class="nav-title">Wire-Speed Tenant Isolation</span>
+    </nav>
+    
+    <header class="hero">
+        <div class="chapter-badge">
+            <span>09</span>
+            <span>Hardware Evolution</span>
+        </div>
+        <h1>The DPU Journey</h1>
+        <p class="hero-desc">From BlueField-2 to BlueField-4: How each generation improved isolation capabilities and enabled new AI infrastructure possibilities.</p>
+    </header>
+    
+    <main class="content">
+        <!-- Chip Overview -->
+        <div class="chip-evolution">
+            <div class="chip-card bf2" data-tooltip="chip-bf2">
+                <div class="chip-visual">🔷</div>
+                <div class="chip-name">BlueField-2</div>
+                <div class="chip-year">2020</div>
+                <div class="chip-stat">200G</div>
+                <div class="chip-stat-label">Network</div>
+            </div>
+            <div class="chip-card bf3" data-tooltip="chip-bf3">
+                <div class="chip-visual">💠</div>
+                <div class="chip-name">BlueField-3</div>
+                <div class="chip-year">2022</div>
+                <div class="chip-stat">400G</div>
+                <div class="chip-stat-label">Network</div>
+            </div>
+            <div class="chip-card bf3s" data-tooltip="chip-bf3s">
+                <div class="chip-visual">⬡</div>
+                <div class="chip-name">BlueField-3S</div>
+                <div class="chip-year">2024</div>
+                <div class="chip-stat">400G</div>
+                <div class="chip-stat-label">SuperNIC</div>
+            </div>
+            <div class="chip-card bf4" data-tooltip="chip-bf4">
+                <div class="chip-visual">🔶</div>
+                <div class="chip-name">BlueField-4</div>
+                <div class="chip-year">2025</div>
+                <div class="chip-stat">800G</div>
+                <div class="chip-stat-label">Network</div>
+            </div>
+        </div>
+        
+        <!-- Timeline -->
+        <section class="section">
+            <div class="section-label">Evolution</div>
+            <h2>Generation by Generation</h2>
+            <p>Each BlueField generation brought significant improvements in processing power, network speed, and isolation capabilities.</p>
+            
+            <div class="timeline-container">
+                <div class="timeline-line"></div>
+                
+                <div class="timeline-item bf2">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-card" data-tooltip="tl-bf2">
+                        <div class="timeline-year">2020</div>
+                        <h3>BlueField-2</h3>
+                        <p>The foundation. First production DPU with integrated ARM cores and hardware isolation capabilities.</p>
+                        <div class="timeline-specs">
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-blue);">8</div>
+                                <div class="label">ARM A72</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-blue);">200G</div>
+                                <div class="label">Network</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-blue);">16GB</div>
+                                <div class="label">DDR4</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-blue);">7nm</div>
+                                <div class="label">Process</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-item bf3">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-card" data-tooltip="tl-bf3">
+                        <div class="timeline-year">2022</div>
+                        <h3>BlueField-3</h3>
+                        <p>2x network speed, new ARM cores, and DOCA SDK for programmable infrastructure.</p>
+                        <div class="timeline-specs">
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-purple);">16</div>
+                                <div class="label">ARM A78</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-purple);">400G</div>
+                                <div class="label">Network</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-purple);">32GB</div>
+                                <div class="label">DDR5</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-purple);">5nm</div>
+                                <div class="label">Process</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-item bf3s">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-card" data-tooltip="tl-bf3s">
+                        <div class="timeline-year">2024</div>
+                        <h3>BlueField-3 SuperNIC</h3>
+                        <p>Optimized for AI workloads. Enhanced RDMA, GPU-direct support, and SHARP in-network computing.</p>
+                        <div class="timeline-specs">
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-green);">8</div>
+                                <div class="label">ARM A78</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-green);">400G</div>
+                                <div class="label">Network</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-green);">SHARP</div>
+                                <div class="label">In-Network</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-green);">AI</div>
+                                <div class="label">Optimized</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="timeline-item bf4">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-card" data-tooltip="tl-bf4">
+                        <div class="timeline-year">2025</div>
+                        <h3>BlueField-4</h3>
+                        <p>Next generation: 800G networking, enhanced isolation, and advanced AI acceleration.</p>
+                        <div class="timeline-specs">
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-cyan);">24</div>
+                                <div class="label">ARM Cores</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-cyan);">800G</div>
+                                <div class="label">Network</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-cyan);">64GB</div>
+                                <div class="label">HBM</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="value" style="color: var(--accent-cyan);">3nm</div>
+                                <div class="label">Process</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Comparison Table -->
+        <section class="section">
+            <div class="section-label">Specifications</div>
+            <h2>Detailed Comparison</h2>
+            <p>Side-by-side technical specifications across all BlueField generations.</p>
+            
+            <div class="compare-container">
+                <h3>📋 Generation Comparison</h3>
+                <table class="compare-table">
+                    <thead>
+                        <tr>
+                            <th>Specification</th>
+                            <th class="bf2">BF-2</th>
+                            <th class="bf3">BF-3</th>
+                            <th class="bf3s">BF-3S</th>
+                            <th class="bf4">BF-4</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-tooltip="spec-network">
+                            <td>Network Speed</td>
+                            <td>200 Gbps</td>
+                            <td>400 Gbps</td>
+                            <td>400 Gbps</td>
+                            <td class="highlight">800 Gbps</td>
+                        </tr>
+                        <tr data-tooltip="spec-cpu">
+                            <td>CPU Cores</td>
+                            <td>8× A72</td>
+                            <td>16× A78</td>
+                            <td>8× A78</td>
+                            <td class="highlight">24× A78AE</td>
+                        </tr>
+                        <tr data-tooltip="spec-memory">
+                            <td>Memory</td>
+                            <td>16GB DDR4</td>
+                            <td>32GB DDR5</td>
+                            <td>16GB DDR5</td>
+                            <td class="highlight">64GB HBM3</td>
+                        </tr>
+                        <tr data-tooltip="spec-pcie">
+                            <td>PCIe</td>
+                            <td>Gen 4</td>
+                            <td>Gen 5</td>
+                            <td>Gen 5</td>
+                            <td class="highlight">Gen 6</td>
+                        </tr>
+                        <tr data-tooltip="spec-flow">
+                            <td>Flow Entries</td>
+                            <td>500K</td>
+                            <td>1M</td>
+                            <td>1M</td>
+                            <td class="highlight">4M</td>
+                        </tr>
+                        <tr data-tooltip="spec-crypto">
+                            <td>Crypto Throughput</td>
+                            <td>100 Gbps</td>
+                            <td>200 Gbps</td>
+                            <td>200 Gbps</td>
+                            <td class="highlight">400 Gbps</td>
+                        </tr>
+                        <tr data-tooltip="spec-power">
+                            <td>TDP</td>
+                            <td>75W</td>
+                            <td>150W</td>
+                            <td>100W</td>
+                            <td>200W</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        
+        <!-- Performance Graph -->
+        <section class="section">
+            <div class="section-label">Performance</div>
+            <h2>Performance Scaling</h2>
+            <p>How key metrics have improved across generations.</p>
+            
+            <div class="graph-container">
+                <h3>📈 Performance Over Generations</h3>
+                <div class="graph-area">
+                    <svg class="graph-svg" viewBox="0 0 400 150" preserveAspectRatio="none">
+                        <!-- Grid lines -->
+                        <line x1="50" y1="130" x2="380" y2="130" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="50" y1="100" x2="380" y2="100" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="50" y1="70" x2="380" y2="70" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        <line x1="50" y1="40" x2="380" y2="40" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                        
+                        <!-- Network Speed -->
+                        <path d="M80,100 L160,70 L240,70 L320,40" stroke="#64d2ff" stroke-width="3" fill="none" stroke-linecap="round"/>
+                        <circle cx="80" cy="100" r="5" fill="#64d2ff"/>
+                        <circle cx="160" cy="70" r="5" fill="#64d2ff"/>
+                        <circle cx="240" cy="70" r="5" fill="#64d2ff"/>
+                        <circle cx="320" cy="40" r="5" fill="#64d2ff"/>
+                        
+                        <!-- CPU Performance -->
+                        <path d="M80,115 L160,85 L240,100 L320,55" stroke="#bf5af2" stroke-width="3" fill="none" stroke-linecap="round"/>
+                        <circle cx="80" cy="115" r="5" fill="#bf5af2"/>
+                        <circle cx="160" cy="85" r="5" fill="#bf5af2"/>
+                        <circle cx="240" cy="100" r="5" fill="#bf5af2"/>
+                        <circle cx="320" cy="55" r="5" fill="#bf5af2"/>
+                        
+                        <!-- Flow Capacity -->
+                        <path d="M80,120 L160,105 L240,105 L320,60" stroke="#30d158" stroke-width="3" fill="none" stroke-linecap="round"/>
+                        <circle cx="80" cy="120" r="5" fill="#30d158"/>
+                        <circle cx="160" cy="105" r="5" fill="#30d158"/>
+                        <circle cx="240" cy="105" r="5" fill="#30d158"/>
+                        <circle cx="320" cy="60" r="5" fill="#30d158"/>
+                        
+                        <!-- Labels -->
+                        <text x="80" y="145" text-anchor="middle" fill="#6e6e73" font-size="11">BF-2</text>
+                        <text x="160" y="145" text-anchor="middle" fill="#6e6e73" font-size="11">BF-3</text>
+                        <text x="240" y="145" text-anchor="middle" fill="#6e6e73" font-size="11">BF-3S</text>
+                        <text x="320" y="145" text-anchor="middle" fill="#6e6e73" font-size="11">BF-4</text>
+                    </svg>
+                </div>
+                <div class="graph-legend">
+                    <div class="legend-line">
+                        <div class="line" style="background: #64d2ff;"></div>
+                        <span>Network Speed</span>
+                    </div>
+                    <div class="legend-line">
+                        <div class="line" style="background: #bf5af2;"></div>
+                        <span>CPU Performance</span>
+                    </div>
+                    <div class="legend-line">
+                        <div class="line" style="background: #30d158;"></div>
+                        <span>Flow Capacity</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Key Features -->
+        <section class="section">
+            <div class="section-label">Innovations</div>
+            <h2>Key Advancements</h2>
+            <p>The most significant improvements introduced with each generation.</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card" data-tooltip="feat-doca">
+                    <div class="feature-icon">🛠️</div>
+                    <h4>DOCA SDK</h4>
+                    <p>Unified programming framework for all DPU accelerators and data path functions.</p>
+                </div>
+                <div class="feature-card" data-tooltip="feat-sharp">
+                    <div class="feature-icon">⚡</div>
+                    <h4>SHARP</h4>
+                    <p>In-network computing for collective operations—reduces all-reduce latency by 10x.</p>
+                </div>
+                <div class="feature-card" data-tooltip="feat-nvme">
+                    <div class="feature-icon">💾</div>
+                    <h4>NVMe-oF</h4>
+                    <p>Hardware-accelerated storage virtualization for composable infrastructure.</p>
+                </div>
+                <div class="feature-card" data-tooltip="feat-virt">
+                    <div class="feature-icon">🔲</div>
+                    <h4>SR-IOV</h4>
+                    <p>Hardware virtualization with 512 virtual functions per port for dense multi-tenancy.</p>
+                </div>
+                <div class="feature-card" data-tooltip="feat-crypto">
+                    <div class="feature-icon">🔐</div>
+                    <h4>Inline Crypto</h4>
+                    <p>Line-rate encryption/decryption with zero CPU overhead.</p>
+                </div>
+                <div class="feature-card" data-tooltip="feat-telemetry">
+                    <div class="feature-icon">📊</div>
+                    <h4>Deep Telemetry</h4>
+                    <p>Per-flow counters, latency histograms, and real-time congestion detection.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="chapter-nav">
+        <a href="chapter-08-performance-analysis.html" class="nav-link">
+            <span class="direction">← Previous</span>
+            <span class="title">Performance Analysis</span>
+        </a>
+        <a href="chapter-10-nvidia-astra.html" class="nav-link">
+            <span class="direction">Next →</span>
+            <span class="title">NVIDIA ASTRA</span>
+        </a>
+    </footer>
+    
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+    </div>
+    
+    <script>
+        const tooltips = {
+            'chip-bf2': { title: 'BlueField-2', text: 'First production DPU. Established the foundation with 200G networking and basic isolation.' },
+            'chip-bf3': { title: 'BlueField-3', text: 'Major upgrade: 2x network speed, new ARM cores, enhanced DOCA programmability.' },
+            'chip-bf3s': { title: 'BlueField-3 SuperNIC', text: 'AI-optimized variant with SHARP in-network computing and GPU-direct support.' },
+            'chip-bf4': { title: 'BlueField-4', text: 'Next-gen: 800G networking, HBM3 memory, 4M flow entries. Coming 2025.' },
+            'tl-bf2': { title: 'BlueField-2 (2020)', text: 'Pioneered the DPU category. 8x ARM A72 cores, 200 Gbps networking, and hardware-isolated tenants.' },
+            'tl-bf3': { title: 'BlueField-3 (2022)', text: 'Doubled network speed to 400G. 16x ARM A78 cores with advanced DOCA SDK for programmable data paths.' },
+            'tl-bf3s': { title: 'BlueField-3 SuperNIC (2024)', text: 'Streamlined for AI clusters. Adds SHARP for 10x faster collective operations and optimized RDMA.' },
+            'tl-bf4': { title: 'BlueField-4 (2025)', text: 'Revolutionary 800G networking, HBM3 for huge flow tables, PCIe Gen 6 for next-gen GPUs.' },
+            'spec-network': { title: 'Network Speed', text: 'Bi-directional throughput. BF-4 doubles to 800 Gbps for next-gen AI clusters.' },
+            'spec-cpu': { title: 'ARM CPU Cores', text: 'General-purpose processing for control plane and complex policies. BF-4 adds safety-certified A78AE.' },
+            'spec-memory': { title: 'On-Board Memory', text: 'DDR for packet buffers and flow tables. BF-4 moves to HBM3 for massive bandwidth.' },
+            'spec-pcie': { title: 'PCIe Generation', text: 'Host connectivity. Gen 6 in BF-4 provides 128 GT/s for GPU-DPU communication.' },
+            'spec-flow': { title: 'Flow Table Entries', text: 'Number of simultaneous flows tracked. Critical for multi-tenant isolation at scale.' },
+            'spec-crypto': { title: 'Crypto Throughput', text: 'Line-rate encryption/decryption. All tenant traffic can be encrypted without performance loss.' },
+            'spec-power': { title: 'Thermal Design Power', text: 'Maximum power consumption. Higher TDP enables more features but requires better cooling.' },
+            'feat-doca': { title: 'DOCA SDK', text: 'NVIDIA Data Center Infrastructure On a Chip Architecture. Unified API for all DPU functions.' },
+            'feat-sharp': { title: 'SHARP Technology', text: 'Scalable Hierarchical Aggregation Protocol. Performs collective operations in the network fabric.' },
+            'feat-nvme': { title: 'NVMe over Fabrics', text: 'Hardware-accelerated remote storage access. Composable disaggregated storage.' },
+            'feat-virt': { title: 'SR-IOV Virtualization', text: 'Single Root I/O Virtualization. Hardware-level NIC virtualization with no hypervisor overhead.' },
+            'feat-crypto': { title: 'Inline Encryption', text: 'AES-GCM and IPSec at full line rate. Zero CPU cycles consumed for encryption.' },
+            'feat-telemetry': { title: 'Deep Telemetry', text: 'Hardware counters for every flow. Microsecond-resolution latency tracking.' }
+        };
+        
+        const tooltip = document.getElementById('tooltip');
+        const tooltipTitle = tooltip.querySelector('.tooltip-title');
+        const tooltipText = tooltip.querySelector('.tooltip-text');
+        
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const data = tooltips[el.dataset.tooltip];
+                if (!data) return;
+                
+                tooltipTitle.textContent = data.title;
+                tooltipText.textContent = data.text;
+                
+                const rect = el.getBoundingClientRect();
+                tooltip.style.left = rect.left + rect.width/2 - tooltip.offsetWidth/2 + 'px';
+                tooltip.style.top = rect.top - tooltip.offsetHeight - 12 + 'px';
+                
+                if (parseFloat(tooltip.style.left) < 10) tooltip.style.left = '10px';
+                if (parseFloat(tooltip.style.left) + tooltip.offsetWidth > window.innerWidth - 10) {
+                    tooltip.style.left = (window.innerWidth - tooltip.offsetWidth - 10) + 'px';
+                }
+                
+                tooltip.classList.add('visible');
+            });
+            
+            el.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>

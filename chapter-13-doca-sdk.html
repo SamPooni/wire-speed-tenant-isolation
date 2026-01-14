@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 13: DOCA SDK & Programming | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=SF+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #111111;
+            --text-primary: #ffffff;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --accent-pink: #ff375f;
+            --accent-yellow: #ffd60a;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .bg-gradient {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 0%, rgba(100, 210, 255, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(0, 199, 190, 0.08) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        .chapter-header {
+            padding: 120px 0 80px;
+            text-align: center;
+        }
+
+        .chapter-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(100, 210, 255, 0.15);
+            border: 1px solid rgba(100, 210, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            margin-bottom: 24px;
+        }
+
+        .chapter-badge::before {
+            content: '13';
+            background: var(--accent-cyan);
+            color: #000;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .chapter-title {
+            font-size: clamp(42px, 6vw, 64px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #64d2ff 0%, #00c7be 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .chapter-subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin: 60px 0;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 28px;
+            text-align: center;
+            cursor: help;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--stat-color, var(--accent-cyan));
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--stat-color, var(--accent-cyan));
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Section */
+        .section {
+            padding: 80px 0;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .section-header {
+            margin-bottom: 48px;
+        }
+
+        .section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+
+        .section-desc {
+            font-size: 17px;
+            color: var(--text-secondary);
+            max-width: 700px;
+        }
+
+        /* Architecture Diagram */
+        .arch-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 40px;
+            margin-top: 40px;
+        }
+
+        .arch-layers {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .arch-layer {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .arch-layer-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-align: right;
+        }
+
+        .arch-layer-content {
+            display: flex;
+            gap: 12px;
+        }
+
+        .arch-block {
+            flex: 1;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.2s ease;
+        }
+
+        .arch-block:hover {
+            transform: scale(1.02);
+        }
+
+        .arch-block-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .arch-block-desc {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        .arch-arrow {
+            display: flex;
+            justify-content: center;
+            padding: 8px 0;
+            color: var(--text-tertiary);
+            font-size: 24px;
+        }
+
+        /* API Cards */
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 40px;
+        }
+
+        .api-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 28px;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .api-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--card-color, rgba(100, 210, 255, 0.4));
+        }
+
+        .api-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+
+        .api-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .api-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        .api-functions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .api-func {
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            font-size: 11px;
+            font-family: 'SF Mono', monospace;
+            color: var(--accent-cyan);
+        }
+
+        /* Code Block */
+        .code-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 40px;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background: rgba(0,0,0,0.4);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .code-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .code-lang {
+            font-size: 12px;
+            padding: 4px 10px;
+            background: rgba(100, 210, 255, 0.15);
+            border-radius: 100px;
+            color: var(--accent-cyan);
+        }
+
+        .code-block {
+            padding: 24px;
+            overflow-x: auto;
+        }
+
+        .code-line {
+            display: flex;
+            align-items: flex-start;
+            padding: 4px 0;
+            cursor: help;
+            transition: background 0.2s;
+        }
+
+        .code-line:hover {
+            background: rgba(100, 210, 255, 0.05);
+        }
+
+        .code-num {
+            width: 40px;
+            color: var(--text-tertiary);
+            font-family: 'SF Mono', monospace;
+            font-size: 13px;
+            user-select: none;
+        }
+
+        .code-content {
+            flex: 1;
+            font-family: 'SF Mono', monospace;
+            font-size: 13px;
+            white-space: pre;
+        }
+
+        .code-keyword { color: var(--accent-purple); }
+        .code-function { color: var(--accent-cyan); }
+        .code-string { color: var(--accent-green); }
+        .code-comment { color: var(--text-tertiary); font-style: italic; }
+        .code-type { color: var(--accent-orange); }
+        .code-number { color: var(--accent-yellow); }
+
+        /* Programming Models */
+        .model-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-top: 40px;
+        }
+
+        .model-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 32px;
+            cursor: help;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .model-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--model-color, var(--accent-cyan));
+        }
+
+        .model-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .model-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .badge-recommended {
+            background: rgba(48, 209, 88, 0.15);
+            color: var(--accent-green);
+        }
+
+        .badge-advanced {
+            background: rgba(191, 90, 242, 0.15);
+            color: var(--accent-purple);
+        }
+
+        .model-title {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .model-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .model-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .model-stat {
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+
+        .model-stat-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .model-stat-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* Pipeline Visualization */
+        .pipeline-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 40px;
+            margin-top: 40px;
+        }
+
+        .pipeline-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .pipeline-flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            overflow-x: auto;
+            padding: 20px 0;
+        }
+
+        .pipeline-stage {
+            flex: 0 0 140px;
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.2s ease;
+        }
+
+        .pipeline-stage:hover {
+            transform: scale(1.05);
+        }
+
+        .pipeline-stage-icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+
+        .pipeline-stage-name {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .pipeline-stage-time {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            font-family: 'SF Mono', monospace;
+        }
+
+        .pipeline-arrow {
+            flex: 0 0 auto;
+            font-size: 20px;
+            color: var(--text-tertiary);
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--tooltip-color, var(--accent-cyan));
+            border-radius: 12px;
+            padding: 16px 20px;
+            max-width: 320px;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s ease;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tooltip-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--tooltip-color, var(--accent-cyan));
+            margin-bottom: 8px;
+        }
+
+        .tooltip-text {
+            font-size: 13px;
+            color: #fff;
+            line-height: 1.5;
+        }
+
+        /* Navigation */
+        .nav-footer {
+            display: flex;
+            justify-content: space-between;
+            padding: 40px 0;
+            margin-top: 60px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            border-color: var(--accent-cyan);
+            transform: translateX(4px);
+        }
+
+        .nav-link.prev:hover {
+            transform: translateX(-4px);
+        }
+
+        .nav-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-title {
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        @media (max-width: 900px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .api-grid { grid-template-columns: 1fr; }
+            .model-grid { grid-template-columns: 1fr; }
+            .arch-layer { grid-template-columns: 1fr; }
+            .arch-layer-label { text-align: left; }
+        }
+
+        @media (max-width: 600px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .pipeline-flow { flex-direction: column; }
+            .pipeline-arrow { transform: rotate(90deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    
+    <div class="container">
+        <header class="chapter-header">
+            <div class="chapter-badge">Developer Toolkit</div>
+            <h1 class="chapter-title">DOCA SDK & Programming</h1>
+            <p class="chapter-subtitle">
+                Build custom network functions on BlueField DPUs with NVIDIA's Data Center Infrastructure 
+                On a Chip Architecture (DOCA) software development kit.
+            </p>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card" style="--stat-color: var(--accent-cyan)" data-tooltip="stat-apis">
+                <div class="stat-value">50+</div>
+                <div class="stat-label">Core APIs</div>
+            </div>
+            <div class="stat-card" style="--stat-color: var(--accent-green)" data-tooltip="stat-languages">
+                <div class="stat-value">C/C++</div>
+                <div class="stat-label">Primary Languages</div>
+            </div>
+            <div class="stat-card" style="--stat-color: var(--accent-purple)" data-tooltip="stat-accel">
+                <div class="stat-value">12</div>
+                <div class="stat-label">Hardware Accelerators</div>
+            </div>
+            <div class="stat-card" style="--stat-color: var(--accent-orange)" data-tooltip="stat-perf">
+                <div class="stat-value">10×</div>
+                <div class="stat-label">vs Software-Only</div>
+            </div>
+        </div>
+
+        <!-- Architecture Section -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Architecture</div>
+                <h2 class="section-title">DOCA Software Stack</h2>
+                <p class="section-desc">
+                    DOCA provides a unified programming model for BlueField DPUs, abstracting hardware 
+                    complexity while enabling direct accelerator access for maximum performance.
+                </p>
+            </div>
+
+            <div class="arch-diagram">
+                <div class="arch-layers">
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">Application</div>
+                        <div class="arch-layer-content">
+                            <div class="arch-block" style="background: rgba(191, 90, 242, 0.2); border: 2px solid rgba(191, 90, 242, 0.4)" data-tooltip="arch-custom">
+                                <div class="arch-block-title" style="color: var(--accent-purple)">Custom Apps</div>
+                                <div class="arch-block-desc">Your network functions</div>
+                            </div>
+                            <div class="arch-block" style="background: rgba(100, 210, 255, 0.2); border: 2px solid rgba(100, 210, 255, 0.4)" data-tooltip="arch-reference">
+                                <div class="arch-block-title" style="color: var(--accent-cyan)">Reference Apps</div>
+                                <div class="arch-block-desc">Firewall, Gateway, Switch</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="arch-arrow">↓</div>
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">DOCA SDK</div>
+                        <div class="arch-layer-content">
+                            <div class="arch-block" style="background: rgba(48, 209, 88, 0.2); border: 2px solid rgba(48, 209, 88, 0.4)" data-tooltip="arch-flow">
+                                <div class="arch-block-title" style="color: var(--accent-green)">DOCA Flow</div>
+                                <div class="arch-block-desc">Packet processing</div>
+                            </div>
+                            <div class="arch-block" style="background: rgba(255, 159, 10, 0.2); border: 2px solid rgba(255, 159, 10, 0.4)" data-tooltip="arch-crypto">
+                                <div class="arch-block-title" style="color: var(--accent-orange)">DOCA Crypto</div>
+                                <div class="arch-block-desc">Encryption/decryption</div>
+                            </div>
+                            <div class="arch-block" style="background: rgba(0, 113, 227, 0.2); border: 2px solid rgba(0, 113, 227, 0.4)" data-tooltip="arch-compress">
+                                <div class="arch-block-title" style="color: var(--accent-blue)">DOCA Compress</div>
+                                <div class="arch-block-desc">Data compression</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="arch-arrow">↓</div>
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">Drivers</div>
+                        <div class="arch-layer-content">
+                            <div class="arch-block" style="background: rgba(255, 69, 58, 0.2); border: 2px solid rgba(255, 69, 58, 0.4)" data-tooltip="arch-dpdk">
+                                <div class="arch-block-title" style="color: var(--accent-red)">DPDK</div>
+                                <div class="arch-block-desc">Fast packet I/O</div>
+                            </div>
+                            <div class="arch-block" style="background: rgba(255, 214, 10, 0.2); border: 2px solid rgba(255, 214, 10, 0.4)" data-tooltip="arch-rdma">
+                                <div class="arch-block-title" style="color: var(--accent-yellow)">RDMA</div>
+                                <div class="arch-block-desc">Low-latency transfers</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="arch-arrow">↓</div>
+                    <div class="arch-layer">
+                        <div class="arch-layer-label">Hardware</div>
+                        <div class="arch-layer-content">
+                            <div class="arch-block" style="background: rgba(100, 210, 255, 0.2); border: 2px solid rgba(100, 210, 255, 0.4)" data-tooltip="arch-hw">
+                                <div class="arch-block-title" style="color: var(--accent-cyan)">BlueField DPU</div>
+                                <div class="arch-block-desc">ARM Cores + Accelerators + Network</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Core APIs -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">APIs</div>
+                <h2 class="section-title">Core DOCA Libraries</h2>
+                <p class="section-desc">
+                    Each DOCA library provides specialized functionality for common network and 
+                    data center operations.
+                </p>
+            </div>
+
+            <div class="api-grid">
+                <div class="api-card" style="--card-color: var(--accent-green)" data-tooltip="api-flow">
+                    <div class="api-icon" style="background: rgba(48, 209, 88, 0.2)">🌊</div>
+                    <h3 class="api-title">DOCA Flow</h3>
+                    <p class="api-desc">
+                        High-performance packet steering and modification. Define flow rules that 
+                        execute at wire-speed in hardware.
+                    </p>
+                    <div class="api-functions">
+                        <span class="api-func">doca_flow_pipe_create()</span>
+                        <span class="api-func">doca_flow_pipe_add_entry()</span>
+                        <span class="api-func">doca_flow_query()</span>
+                    </div>
+                </div>
+
+                <div class="api-card" style="--card-color: var(--accent-orange)" data-tooltip="api-crypto">
+                    <div class="api-icon" style="background: rgba(255, 159, 10, 0.2)">🔐</div>
+                    <h3 class="api-title">DOCA Crypto</h3>
+                    <p class="api-desc">
+                        Hardware-accelerated encryption and decryption. AES-GCM at line rate with 
+                        minimal CPU overhead.
+                    </p>
+                    <div class="api-functions">
+                        <span class="api-func">doca_aes_gcm_encrypt()</span>
+                        <span class="api-func">doca_sha_hash()</span>
+                        <span class="api-func">doca_ec_sign()</span>
+                    </div>
+                </div>
+
+                <div class="api-card" style="--card-color: var(--accent-blue)" data-tooltip="api-compress">
+                    <div class="api-icon" style="background: rgba(0, 113, 227, 0.2)">📦</div>
+                    <h3 class="api-title">DOCA Compress</h3>
+                    <p class="api-desc">
+                        Hardware compression for storage and network. LZ4/Zstd at 100+ GB/s with 
+                        dedicated engines.
+                    </p>
+                    <div class="api-functions">
+                        <span class="api-func">doca_compress_deflate()</span>
+                        <span class="api-func">doca_decompress()</span>
+                        <span class="api-func">doca_compress_lz4()</span>
+                    </div>
+                </div>
+
+                <div class="api-card" style="--card-color: var(--accent-purple)" data-tooltip="api-regex">
+                    <div class="api-icon" style="background: rgba(191, 90, 242, 0.2)">🔍</div>
+                    <h3 class="api-title">DOCA RegEx</h3>
+                    <p class="api-desc">
+                        Pattern matching at wire-speed. Deep packet inspection, IDS/IPS, and 
+                        application identification.
+                    </p>
+                    <div class="api-functions">
+                        <span class="api-func">doca_regex_compile()</span>
+                        <span class="api-func">doca_regex_search()</span>
+                        <span class="api-func">doca_regex_match()</span>
+                    </div>
+                </div>
+
+                <div class="api-card" style="--card-color: var(--accent-yellow)" data-tooltip="api-dma">
+                    <div class="api-icon" style="background: rgba(255, 214, 10, 0.2)">⚡</div>
+                    <h3 class="api-title">DOCA DMA</h3>
+                    <p class="api-desc">
+                        High-speed memory transfers between host and DPU. Zero-copy data movement 
+                        with RDMA semantics.
+                    </p>
+                    <div class="api-functions">
+                        <span class="api-func">doca_dma_memcpy()</span>
+                        <span class="api-func">doca_dma_host_to_dpu()</span>
+                        <span class="api-func">doca_dma_async()</span>
+                    </div>
+                </div>
+
+                <div class="api-card" style="--card-color: var(--accent-cyan)" data-tooltip="api-telemetry">
+                    <div class="api-icon" style="background: rgba(100, 210, 255, 0.2)">📊</div>
+                    <h3 class="api-title">DOCA Telemetry</h3>
+                    <p class="api-desc">
+                        Real-time performance monitoring. Hardware counters, flow statistics, and 
+                        custom metrics export.
+                    </p>
+                    <div class="api-functions">
+                        <span class="api-func">doca_telemetry_start()</span>
+                        <span class="api-func">doca_telemetry_export()</span>
+                        <span class="api-func">doca_counter_read()</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Code Example -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Example</div>
+                <h2 class="section-title">Flow Rule Programming</h2>
+                <p class="section-desc">
+                    Creating a hardware-offloaded flow rule for tenant isolation with QoS enforcement.
+                </p>
+            </div>
+
+            <div class="code-container">
+                <div class="code-header">
+                    <span class="code-title">tenant_isolation.c</span>
+                    <span class="code-lang">C</span>
+                </div>
+                <div class="code-block">
+                    <div class="code-line" data-tooltip="code-include">
+                        <span class="code-num">1</span>
+                        <span class="code-content"><span class="code-keyword">#include</span> <span class="code-string">&lt;doca_flow.h&gt;</span></span>
+                    </div>
+                    <div class="code-line" data-tooltip="code-include2">
+                        <span class="code-num">2</span>
+                        <span class="code-content"><span class="code-keyword">#include</span> <span class="code-string">&lt;doca_flow_net.h&gt;</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="code-num">3</span>
+                        <span class="code-content"></span>
+                    </div>
+                    <div class="code-line" data-tooltip="code-func">
+                        <span class="code-num">4</span>
+                        <span class="code-content"><span class="code-type">int</span> <span class="code-function">create_tenant_isolation_rule</span>(<span class="code-type">uint16_t</span> tenant_id, <span class="code-type">uint64_t</span> rate_limit) {</span>
+                    </div>
+                    <div class="code-line" data-tooltip="code-match">
+                        <span class="code-num">5</span>
+                        <span class="code-content">    <span class="code-type">struct</span> doca_flow_match match = {</span>
+                    </div>
+                    <div class="code-line" data-tooltip="code-vlan">
+                        <span class="code-num">6</span>
+                        <span class="code-content">        .outer.l2_type = DOCA_FLOW_L2_TYPE_ETH,</span>
+                    </div>
+                    <div class="code-line" data-tooltip="code-vlan-id">
+                        <span class="code-num">7</span>
+                        <span class="code-content">        .outer.vlan_id = tenant_id,  <span class="code-comment">// Match tenant VLAN</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="code-num">8</span>
+                        <span class="code-content">    };</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="code-num">9</span>
+                        <span class="code-content"></span>
+                    </div>
+                    <div class="code-line" data-tooltip="code-action">
+                        <span class="code-num">10</span>
+                        <span class="code-content">    <span class="code-type">struct</span> doca_flow_actions actions = {</span>
+                    </div>
+                    <div class="code-line" data-tooltip="code-meter">
+                        <span class="code-num">11</span>
+                        <span class="code-content">        .meter.cir = rate_limit,     <span class="code-comment">// Committed rate (bps)</span></span>
+                    </div>
+                    <div class="code-line" data-tooltip="code-burst">
+                        <span class="code-num">12</span>
+                        <span class="code-content">        .meter.cbs = <span class="code-number">12500000</span>,       <span class="code-comment">// 12.5MB burst size</span></span>
+                    </div>
+                    <div class="code-line">
+                        <span class="code-num">13</span>
+                        <span class="code-content">    };</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="code-num">14</span>
+                        <span class="code-content"></span>
+                    </div>
+                    <div class="code-line" data-tooltip="code-create">
+                        <span class="code-num">15</span>
+                        <span class="code-content">    <span class="code-keyword">return</span> <span class="code-function">doca_flow_pipe_add_entry</span>(pipe, &amp;match, &amp;actions, NULL);</span>
+                    </div>
+                    <div class="code-line">
+                        <span class="code-num">16</span>
+                        <span class="code-content">}</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Programming Models -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Models</div>
+                <h2 class="section-title">Programming Models</h2>
+                <p class="section-desc">
+                    DOCA supports multiple programming models to match your performance and 
+                    complexity requirements.
+                </p>
+            </div>
+
+            <div class="model-grid">
+                <div class="model-card" style="--model-color: var(--accent-green)" data-tooltip="model-pipe">
+                    <span class="model-badge badge-recommended">Recommended</span>
+                    <h3 class="model-title">Pipe-Based (DOCA Flow)</h3>
+                    <p class="model-desc">
+                        Define flow rules as pipes with match criteria and actions. Hardware automatically 
+                        processes matching packets at wire-speed without CPU intervention.
+                    </p>
+                    <div class="model-stats">
+                        <div class="model-stat">
+                            <div class="model-stat-label">Latency</div>
+                            <div class="model-stat-value" style="color: var(--accent-green)">&lt;5μs</div>
+                        </div>
+                        <div class="model-stat">
+                            <div class="model-stat-label">CPU Usage</div>
+                            <div class="model-stat-value" style="color: var(--accent-green)">0%</div>
+                        </div>
+                        <div class="model-stat">
+                            <div class="model-stat-label">Throughput</div>
+                            <div class="model-stat-value" style="color: var(--accent-green)">400 Gbps</div>
+                        </div>
+                        <div class="model-stat">
+                            <div class="model-stat-label">Complexity</div>
+                            <div class="model-stat-value" style="color: var(--accent-green)">Low</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="model-card" style="--model-color: var(--accent-purple)" data-tooltip="model-rte">
+                    <span class="model-badge badge-advanced">Advanced</span>
+                    <h3 class="model-title">Run-to-Completion (DPDK)</h3>
+                    <p class="model-desc">
+                        Full control over packet processing. Poll packets from queues, process in 
+                        software, and transmit. Maximum flexibility for custom logic.
+                    </p>
+                    <div class="model-stats">
+                        <div class="model-stat">
+                            <div class="model-stat-label">Latency</div>
+                            <div class="model-stat-value" style="color: var(--accent-yellow)">10-50μs</div>
+                        </div>
+                        <div class="model-stat">
+                            <div class="model-stat-label">CPU Usage</div>
+                            <div class="model-stat-value" style="color: var(--accent-orange)">100%</div>
+                        </div>
+                        <div class="model-stat">
+                            <div class="model-stat-label">Throughput</div>
+                            <div class="model-stat-value" style="color: var(--accent-yellow)">100 Gbps</div>
+                        </div>
+                        <div class="model-stat">
+                            <div class="model-stat-label">Complexity</div>
+                            <div class="model-stat-value" style="color: var(--accent-orange)">High</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Packet Processing Pipeline -->
+        <section class="section">
+            <div class="section-header">
+                <div class="section-label">Pipeline</div>
+                <h2 class="section-title">Packet Processing Pipeline</h2>
+                <p class="section-desc">
+                    How packets flow through the DOCA-programmed BlueField DPU with hardware acceleration.
+                </p>
+            </div>
+
+            <div class="pipeline-container">
+                <div class="pipeline-title">Hardware-Accelerated Packet Flow</div>
+                <div class="pipeline-flow">
+                    <div class="pipeline-stage" style="background: rgba(100, 210, 255, 0.2); border: 2px solid rgba(100, 210, 255, 0.4)" data-tooltip="pipe-ingress">
+                        <div class="pipeline-stage-icon">📥</div>
+                        <div class="pipeline-stage-name" style="color: var(--accent-cyan)">Ingress</div>
+                        <div class="pipeline-stage-time">&lt;1μs</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage" style="background: rgba(48, 209, 88, 0.2); border: 2px solid rgba(48, 209, 88, 0.4)" data-tooltip="pipe-parse">
+                        <div class="pipeline-stage-icon">🔍</div>
+                        <div class="pipeline-stage-name" style="color: var(--accent-green)">Parse</div>
+                        <div class="pipeline-stage-time">1-2μs</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage" style="background: rgba(191, 90, 242, 0.2); border: 2px solid rgba(191, 90, 242, 0.4)" data-tooltip="pipe-match">
+                        <div class="pipeline-stage-icon">🎯</div>
+                        <div class="pipeline-stage-name" style="color: var(--accent-purple)">Match</div>
+                        <div class="pipeline-stage-time">1-2μs</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage" style="background: rgba(255, 159, 10, 0.2); border: 2px solid rgba(255, 159, 10, 0.4)" data-tooltip="pipe-action">
+                        <div class="pipeline-stage-icon">⚡</div>
+                        <div class="pipeline-stage-name" style="color: var(--accent-orange)">Action</div>
+                        <div class="pipeline-stage-time">1-3μs</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage" style="background: rgba(0, 113, 227, 0.2); border: 2px solid rgba(0, 113, 227, 0.4)" data-tooltip="pipe-egress">
+                        <div class="pipeline-stage-icon">📤</div>
+                        <div class="pipeline-stage-name" style="color: var(--accent-blue)">Egress</div>
+                        <div class="pipeline-stage-time">&lt;1μs</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation -->
+        <nav class="nav-footer">
+            <a href="chapter-12-future-solutions.html" class="nav-link prev">
+                <span>←</span>
+                <div>
+                    <div class="nav-label">Previous</div>
+                    <div class="nav-title">Future & Solutions</div>
+                </div>
+            </a>
+            <a href="chapter-14-deployment-patterns.html" class="nav-link">
+                <div>
+                    <div class="nav-label">Next</div>
+                    <div class="nav-title">Deployment Patterns</div>
+                </div>
+                <span>→</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+    </div>
+
+    <script>
+        const tooltips = {
+            // Stats
+            'stat-apis': { title: '50+ Core APIs', text: 'DOCA provides over 50 APIs covering flow processing, crypto, compression, regex, DMA, telemetry, and more. Each API maps to hardware accelerators.', color: 'var(--accent-cyan)' },
+            'stat-languages': { title: 'C/C++ Primary', text: 'Native C/C++ APIs for maximum performance. Python bindings available for prototyping. Full Linux development environment on ARM cores.', color: 'var(--accent-green)' },
+            'stat-accel': { title: '12 Hardware Accelerators', text: 'BlueField includes dedicated engines: Flow Classification, Crypto (AES/SHA), Compression, RegEx, DMA, NVMe-oF, Storage, and more.', color: 'var(--accent-purple)' },
+            'stat-perf': { title: '10× Performance vs Software', text: 'Hardware offload achieves 10× throughput and 10× lower latency compared to software-only implementations on ARM cores.', color: 'var(--accent-orange)' },
+
+            // Architecture
+            'arch-custom': { title: 'Custom Applications', text: 'Your network functions built with DOCA APIs. Full access to hardware accelerators for wire-speed processing.', color: 'var(--accent-purple)' },
+            'arch-reference': { title: 'Reference Applications', text: 'Pre-built applications: Firewall, L3 Gateway, vSwitch, IPsec Gateway. Modify or use as starting points.', color: 'var(--accent-cyan)' },
+            'arch-flow': { title: 'DOCA Flow Library', text: 'Hardware-accelerated packet steering. Define match+action rules that execute in hardware at 400 Gbps.', color: 'var(--accent-green)' },
+            'arch-crypto': { title: 'DOCA Crypto Library', text: 'AES-GCM, SHA, ECDSA at line rate. Offload encryption to dedicated crypto engines with zero CPU overhead.', color: 'var(--accent-orange)' },
+            'arch-compress': { title: 'DOCA Compress Library', text: 'LZ4/Zstd compression at 100+ GB/s. Compress storage traffic without impacting application performance.', color: 'var(--accent-blue)' },
+            'arch-dpdk': { title: 'DPDK Integration', text: 'Data Plane Development Kit for high-speed packet I/O. Poll-mode driver bypasses kernel for lowest latency.', color: 'var(--accent-red)' },
+            'arch-rdma': { title: 'RDMA Support', text: 'Remote Direct Memory Access for GPU-to-GPU and storage traffic. Bypass CPU for direct memory transfers.', color: 'var(--accent-yellow)' },
+            'arch-hw': { title: 'BlueField Hardware', text: '16 ARM A78 cores, hardware accelerators, and 400G network. DOCA abstracts hardware complexity while enabling full access.', color: 'var(--accent-cyan)' },
+
+            // APIs
+            'api-flow': { title: 'DOCA Flow API', text: 'Create flow pipes with match criteria (VLAN, IP, ports) and actions (forward, drop, modify, meter). Hardware processes matching packets at wire-speed.', color: 'var(--accent-green)' },
+            'api-crypto': { title: 'DOCA Crypto API', text: 'Hardware-accelerated encryption: AES-GCM at 100+ Gbps, SHA-256 hashing, ECDSA signing. Zero CPU overhead for IPsec/TLS.', color: 'var(--accent-orange)' },
+            'api-compress': { title: 'DOCA Compress API', text: 'Compress/decompress at storage speeds. LZ4 at 100+ GB/s, Zstd for higher ratios. Perfect for NVMe-oF and backup.', color: 'var(--accent-blue)' },
+            'api-regex': { title: 'DOCA RegEx API', text: 'Pattern matching in hardware. Compile regex rules, match against packets at wire-speed. Essential for DPI, IDS/IPS.', color: 'var(--accent-purple)' },
+            'api-dma': { title: 'DOCA DMA API', text: 'High-speed memory transfers between host and DPU memory. Zero-copy, RDMA semantics, async operations.', color: 'var(--accent-yellow)' },
+            'api-telemetry': { title: 'DOCA Telemetry API', text: 'Hardware counters for flows, ports, and queues. Export to Prometheus/Grafana. μs-level sampling for microburst detection.', color: 'var(--accent-cyan)' },
+
+            // Code
+            'code-include': { title: 'DOCA Flow Header', text: 'Main DOCA Flow API header. Provides flow rule creation, pipe management, and query functions.', color: 'var(--accent-cyan)' },
+            'code-include2': { title: 'Network Definitions', text: 'Network-specific types: L2/L3/L4 headers, VLAN tags, tunnel encapsulation structures.', color: 'var(--accent-cyan)' },
+            'code-func': { title: 'Function Signature', text: 'Creates a tenant isolation rule with rate limiting. tenant_id maps to VLAN, rate_limit in bits per second.', color: 'var(--accent-cyan)' },
+            'code-match': { title: 'Match Structure', text: 'Defines packet fields to match. Can include L2 (MAC, VLAN), L3 (IP), L4 (ports), and tunnel headers.', color: 'var(--accent-cyan)' },
+            'code-vlan': { title: 'L2 Type', text: 'Specify Ethernet frame type. Required for VLAN matching to work correctly.', color: 'var(--accent-cyan)' },
+            'code-vlan-id': { title: 'VLAN ID Match', text: 'Match packets with specific VLAN ID. Each tenant gets unique VLAN for isolation.', color: 'var(--accent-cyan)' },
+            'code-action': { title: 'Actions Structure', text: 'Defines what to do with matching packets: forward, drop, modify headers, apply QoS, encrypt.', color: 'var(--accent-cyan)' },
+            'code-meter': { title: 'Rate Limiting', text: 'Committed Information Rate (CIR) in bits per second. Hardware enforces rate limit with token bucket.', color: 'var(--accent-cyan)' },
+            'code-burst': { title: 'Burst Size', text: 'Committed Burst Size (CBS) in bytes. 12.5MB allows 100ms burst at 100 Gbps before rate limiting kicks in.', color: 'var(--accent-cyan)' },
+            'code-create': { title: 'Add Rule to Pipe', text: 'Installs flow rule in hardware. Returns immediately, rule active within microseconds.', color: 'var(--accent-cyan)' },
+
+            // Models
+            'model-pipe': { title: 'Pipe-Based Model', text: 'Recommended for most use cases. Define rules declaratively, hardware executes automatically. Best performance, lowest complexity.', color: 'var(--accent-green)' },
+            'model-rte': { title: 'Run-to-Completion Model', text: 'Full software control for complex custom logic. Poll packets, process in code, transmit. Trades performance for flexibility.', color: 'var(--accent-purple)' },
+
+            // Pipeline
+            'pipe-ingress': { title: 'Ingress Stage', text: 'Packet arrives from network port. DMA to internal buffers, checksum validation. Sub-microsecond latency.', color: 'var(--accent-cyan)' },
+            'pipe-parse': { title: 'Parse Stage', text: 'Hardware parser extracts headers: Ethernet, VLAN, IP, TCP/UDP, tunnel. Builds match key for flow lookup.', color: 'var(--accent-green)' },
+            'pipe-match': { title: 'Match Stage', text: 'Flow table lookup with parsed key. TCAM and hash tables support millions of rules with O(1) lookup.', color: 'var(--accent-purple)' },
+            'pipe-action': { title: 'Action Stage', text: 'Execute matched rule actions: modify headers, apply meter, encap/decap tunnels, forward to port/queue.', color: 'var(--accent-orange)' },
+            'pipe-egress': { title: 'Egress Stage', text: 'Transmit to destination port or queue. Update checksums, apply scheduling, send to wire.', color: 'var(--accent-blue)' }
+        };
+
+        const tooltip = document.getElementById('tooltip');
+        const tooltipTitle = tooltip.querySelector('.tooltip-title');
+        const tooltipText = tooltip.querySelector('.tooltip-text');
+
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const data = tooltips[el.dataset.tooltip];
+                if (!data) return;
+                
+                tooltipTitle.textContent = data.title;
+                tooltipText.textContent = data.text;
+                tooltip.style.setProperty('--tooltip-color', data.color);
+                
+                const rect = el.getBoundingClientRect();
+                const x = Math.min(Math.max(rect.left + rect.width / 2, 180), window.innerWidth - 180);
+                const y = rect.top - 10;
+                
+                tooltip.style.left = x + 'px';
+                tooltip.style.top = y + 'px';
+                tooltip.style.transform = 'translate(-50%, -100%)';
+                tooltip.classList.add('visible');
+            });
+
+            el.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>

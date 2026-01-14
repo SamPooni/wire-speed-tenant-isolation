@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 2: What is Tenant Isolation? | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #141414;
+            --bg-card-hover: #1c1c1c;
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+        }
+        
+        .nav-back {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent-blue);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .nav-back:hover { opacity: 0.7; }
+        .nav-back svg { width: 20px; height: 20px; }
+        
+        .nav-title {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        
+        .hero {
+            padding: 140px 24px 80px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .chapter-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, rgba(191,90,242,0.2), rgba(218,143,255,0.2));
+            border: 1px solid rgba(191,90,242,0.3);
+            padding: 10px 20px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #da8fff;
+            margin-bottom: 24px;
+        }
+        
+        .chapter-badge span:first-child {
+            background: var(--accent-purple);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-size: 12px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 24px;
+        }
+        
+        .hero-desc {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 700px;
+        }
+        
+        .content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 24px 120px;
+        }
+        
+        .section {
+            margin-bottom: 80px;
+        }
+        
+        .section-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--accent-purple);
+            margin-bottom: 12px;
+        }
+        
+        .section h2 {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 20px;
+        }
+        
+        .section p {
+            color: var(--text-secondary);
+            font-size: 17px;
+            margin-bottom: 24px;
+        }
+        
+        .diagram-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            border: 1px solid var(--border-subtle);
+            padding: 40px;
+            margin: 40px 0;
+            overflow: hidden;
+        }
+        
+        .diagram-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            margin-bottom: 32px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Multi-tenant Visualization */
+        .tenant-viz {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .tenant-column {
+            flex: 1;
+            background: rgba(255,255,255,0.02);
+            border-radius: 20px;
+            padding: 24px;
+            border: 2px solid var(--tenant-color);
+            position: relative;
+        }
+        
+        .tenant-column::before {
+            content: attr(data-tenant);
+            position: absolute;
+            top: -12px;
+            left: 24px;
+            background: var(--bg-card);
+            padding: 4px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--tenant-color);
+            border-radius: 100px;
+            border: 2px solid var(--tenant-color);
+        }
+        
+        .tenant-a { --tenant-color: var(--accent-blue); }
+        .tenant-b { --tenant-color: var(--accent-purple); }
+        .tenant-c { --tenant-color: var(--accent-green); }
+        
+        .workload-box {
+            background: linear-gradient(135deg, rgba(var(--wb-rgb), 0.15), rgba(var(--wb-rgb), 0.05));
+            border: 1px solid rgba(var(--wb-rgb), 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: help;
+            transition: all 0.3s;
+        }
+        
+        .workload-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        
+        .workload-box:last-child { margin-bottom: 0; }
+        
+        .wb-blue { --wb-rgb: 0, 113, 227; color: var(--accent-cyan); }
+        .wb-purple { --wb-rgb: 191, 90, 242; color: #da8fff; }
+        .wb-green { --wb-rgb: 48, 209, 88; color: var(--accent-green); }
+        .wb-orange { --wb-rgb: 255, 159, 10; color: var(--accent-orange); }
+        
+        .workload-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .workload-desc {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        /* Isolation Layers */
+        .isolation-layers {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .isolation-layer {
+            display: flex;
+            align-items: stretch;
+            gap: 16px;
+            padding: 20px;
+            border-radius: 16px;
+            cursor: help;
+            transition: all 0.3s;
+        }
+        
+        .isolation-layer:hover {
+            transform: translateX(8px);
+        }
+        
+        .il-network {
+            background: linear-gradient(90deg, rgba(0,113,227,0.15), transparent);
+            border-left: 4px solid var(--accent-blue);
+        }
+        
+        .il-compute {
+            background: linear-gradient(90deg, rgba(191,90,242,0.15), transparent);
+            border-left: 4px solid var(--accent-purple);
+        }
+        
+        .il-storage {
+            background: linear-gradient(90deg, rgba(255,159,10,0.15), transparent);
+            border-left: 4px solid var(--accent-orange);
+        }
+        
+        .il-security {
+            background: linear-gradient(90deg, rgba(255,69,58,0.15), transparent);
+            border-left: 4px solid var(--accent-red);
+        }
+        
+        .layer-icon {
+            font-size: 32px;
+            min-width: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .layer-content {
+            flex: 1;
+        }
+        
+        .layer-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .layer-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .layer-badge {
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            align-self: center;
+        }
+        
+        .badge-critical { background: rgba(255,69,58,0.2); color: var(--accent-red); }
+        .badge-high { background: rgba(255,159,10,0.2); color: var(--accent-orange); }
+        .badge-medium { background: rgba(48,209,88,0.2); color: var(--accent-green); }
+        
+        /* Attack Surface Visual */
+        .attack-surface {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+        
+        .attack-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .attack-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--card-accent);
+        }
+        
+        .attack-card:hover {
+            background: var(--bg-card-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+        }
+        
+        .attack-card:nth-child(1) { --card-accent: var(--accent-red); }
+        .attack-card:nth-child(2) { --card-accent: var(--accent-orange); }
+        .attack-card:nth-child(3) { --card-accent: var(--accent-purple); }
+        .attack-card:nth-child(4) { --card-accent: var(--accent-blue); }
+        
+        .attack-icon {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+        
+        .attack-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .attack-risk {
+            font-size: 12px;
+            color: var(--card-accent);
+            font-weight: 500;
+        }
+        
+        /* Comparison Table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 16px 20px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .comparison-table th {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+        }
+        
+        .comparison-table td {
+            font-size: 14px;
+        }
+        
+        .comparison-table tr:hover td {
+            background: rgba(255,255,255,0.02);
+        }
+        
+        .status-good {
+            color: var(--accent-green);
+            font-weight: 500;
+        }
+        
+        .status-bad {
+            color: var(--accent-red);
+            font-weight: 500;
+        }
+        
+        .status-warn {
+            color: var(--accent-orange);
+            font-weight: 500;
+        }
+        
+        /* Callout */
+        .callout {
+            background: linear-gradient(135deg, rgba(191,90,242,0.1), rgba(218,143,255,0.05));
+            border: 1px solid rgba(191,90,242,0.2);
+            border-left: 4px solid var(--accent-purple);
+            border-radius: 16px;
+            padding: 24px 28px;
+            margin: 32px 0;
+        }
+        
+        .callout-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #da8fff;
+            margin-bottom: 8px;
+        }
+        
+        .callout-text {
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--tooltip-color, var(--accent-purple));
+            border-radius: 12px;
+            padding: 16px 20px;
+            max-width: 300px;
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s ease-out;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .tooltip-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--tooltip-color, var(--accent-purple));
+            margin-bottom: 8px;
+        }
+        
+        .tooltip-text {
+            font-size: 13px;
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+        
+        .tooltip-arrow {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 12px;
+            height: 12px;
+            background: #0a0a14;
+            border-right: 2px solid var(--tooltip-color, var(--accent-purple));
+            border-bottom: 2px solid var(--tooltip-color, var(--accent-purple));
+        }
+        
+        /* Navigation */
+        .nav-footer {
+            display: flex;
+            justify-content: space-between;
+            padding: 32px 0;
+            border-top: 1px solid var(--border-subtle);
+            margin-top: 80px;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s;
+        }
+        
+        .nav-link:hover {
+            background: var(--bg-card-hover);
+            transform: translateX(4px);
+        }
+        
+        .nav-link.prev:hover { transform: translateX(-4px); }
+        
+        .nav-link-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        .nav-link-title {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        
+        .nav-link svg {
+            width: 20px;
+            height: 20px;
+            color: var(--accent-blue);
+        }
+        
+        @media (max-width: 768px) {
+            .hero { padding: 100px 20px 60px; }
+            .content { padding: 0 20px 80px; }
+            .diagram-container { padding: 24px; }
+            .tenant-viz { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html" class="nav-back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Index
+        </a>
+        <div class="nav-title">Chapter 2 of 12</div>
+    </nav>
+
+    <header class="hero">
+        <div class="chapter-badge">
+            <span>02</span>
+            <span>Security Fundamentals</span>
+        </div>
+        <h1>What is Tenant Isolation?</h1>
+        <p class="hero-desc">
+            Understanding how cloud providers keep multiple customers securely separated 
+            on shared infrastructure—the foundation of cloud security.
+        </p>
+    </header>
+
+    <main class="content">
+        <section class="section">
+            <div class="section-label">The Core Problem</div>
+            <h2>Sharing Without Seeing</h2>
+            <p>
+                Imagine three different companies—a bank, a hospital, and a startup—all running 
+                their workloads on the same physical servers. How do you ensure the bank can't 
+                accidentally read the hospital's patient data? That's tenant isolation.
+            </p>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">Multi-Tenant Environment</div>
+                <div class="tenant-viz">
+                    <div class="tenant-column tenant-a" data-tenant="Tenant A: Bank">
+                        <div class="workload-box wb-blue" data-tooltip="bank-trading">
+                            <div class="workload-title">Trading Engine</div>
+                            <div class="workload-desc">High-frequency transactions</div>
+                        </div>
+                        <div class="workload-box wb-blue" data-tooltip="bank-risk">
+                            <div class="workload-title">Risk Analysis</div>
+                            <div class="workload-desc">ML fraud detection</div>
+                        </div>
+                    </div>
+                    <div class="tenant-column tenant-b" data-tenant="Tenant B: Hospital">
+                        <div class="workload-box wb-purple" data-tooltip="hospital-ehr">
+                            <div class="workload-title">Patient Records</div>
+                            <div class="workload-desc">HIPAA-compliant EHR</div>
+                        </div>
+                        <div class="workload-box wb-purple" data-tooltip="hospital-imaging">
+                            <div class="workload-title">Medical Imaging</div>
+                            <div class="workload-desc">AI diagnostics</div>
+                        </div>
+                    </div>
+                    <div class="tenant-column tenant-c" data-tenant="Tenant C: Startup">
+                        <div class="workload-box wb-green" data-tooltip="startup-llm">
+                            <div class="workload-title">LLM Training</div>
+                            <div class="workload-desc">Custom AI models</div>
+                        </div>
+                        <div class="workload-box wb-green" data-tooltip="startup-api">
+                            <div class="workload-title">API Services</div>
+                            <div class="workload-desc">Production inference</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="text-align: center; margin-top: 24px; padding: 20px; background: rgba(255,69,58,0.1); border-radius: 12px; border: 1px solid rgba(255,69,58,0.2);">
+                    <div style="font-size: 14px; font-weight: 600; color: var(--accent-red); margin-bottom: 8px;">🔒 Isolation Requirement</div>
+                    <div style="font-size: 13px; color: var(--text-secondary);">Each tenant must be completely invisible to others—no data leakage, no performance interference</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-label">Defense in Depth</div>
+            <h2>Four Layers of Isolation</h2>
+            <p>
+                True tenant isolation isn't achieved through a single mechanism—it requires 
+                multiple overlapping layers of protection. If one layer fails, others still protect.
+            </p>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">Isolation Stack</div>
+                <div class="isolation-layers">
+                    <div class="isolation-layer il-network" data-tooltip="layer-network">
+                        <div class="layer-icon">🌐</div>
+                        <div class="layer-content">
+                            <div class="layer-title">Network Isolation</div>
+                            <div class="layer-desc">VLAN/VxLAN segmentation, flow classification, traffic encryption</div>
+                        </div>
+                        <div class="layer-badge badge-critical">Critical</div>
+                    </div>
+                    <div class="isolation-layer il-compute" data-tooltip="layer-compute">
+                        <div class="layer-icon">⚙️</div>
+                        <div class="layer-content">
+                            <div class="layer-title">Compute Isolation</div>
+                            <div class="layer-desc">VM boundaries, CPU pinning, memory encryption, namespace separation</div>
+                        </div>
+                        <div class="layer-badge badge-critical">Critical</div>
+                    </div>
+                    <div class="isolation-layer il-storage" data-tooltip="layer-storage">
+                        <div class="layer-icon">💾</div>
+                        <div class="layer-content">
+                            <div class="layer-title">Storage Isolation</div>
+                            <div class="layer-desc">Volume encryption, access controls, I/O bandwidth guarantees</div>
+                        </div>
+                        <div class="layer-badge badge-high">High</div>
+                    </div>
+                    <div class="isolation-layer il-security" data-tooltip="layer-security">
+                        <div class="layer-icon">🛡️</div>
+                        <div class="layer-content">
+                            <div class="layer-title">Security Isolation</div>
+                            <div class="layer-desc">Zero-trust boundaries, audit logging, threat detection</div>
+                        </div>
+                        <div class="layer-badge badge-critical">Critical</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="callout">
+                <div class="callout-title">🎯 Key Principle: Defense in Depth</div>
+                <div class="callout-text">
+                    No single isolation mechanism is perfect. The goal is to layer multiple independent 
+                    protections so that an attacker would need to break through all of them simultaneously. 
+                    Network isolation is the first and most critical line of defense.
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-label">Security Threats</div>
+            <h2>What Can Go Wrong?</h2>
+            <p>
+                Without proper isolation, malicious or accidental cross-tenant access can expose 
+                sensitive data, degrade performance, or enable sophisticated attacks.
+            </p>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">Attack Surface Without Isolation</div>
+                <div class="attack-surface">
+                    <div class="attack-card" data-tooltip="attack-sniffing">
+                        <div class="attack-icon">👁️</div>
+                        <div class="attack-title">Traffic Sniffing</div>
+                        <div class="attack-risk">Data Exposure</div>
+                    </div>
+                    <div class="attack-card" data-tooltip="attack-noisy">
+                        <div class="attack-icon">📢</div>
+                        <div class="attack-title">Noisy Neighbor</div>
+                        <div class="attack-risk">Performance Impact</div>
+                    </div>
+                    <div class="attack-card" data-tooltip="attack-side">
+                        <div class="attack-icon">🔓</div>
+                        <div class="attack-title">Side-Channel</div>
+                        <div class="attack-risk">Information Leak</div>
+                    </div>
+                    <div class="attack-card" data-tooltip="attack-ddos">
+                        <div class="attack-icon">💥</div>
+                        <div class="attack-title">Resource Exhaustion</div>
+                        <div class="attack-risk">Denial of Service</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-label">Implementation Approaches</div>
+            <h2>Hardware vs Software Isolation</h2>
+            <p>
+                There are two fundamental approaches to tenant isolation: software-based enforcement 
+                (flexible but slower) and hardware-based isolation (fast but less flexible). 
+                Modern solutions combine both.
+            </p>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">Isolation Method Comparison</div>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Aspect</th>
+                            <th>Software Isolation</th>
+                            <th>Hardware Isolation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr data-tooltip="comp-speed">
+                            <td>Speed</td>
+                            <td class="status-warn">10-100 μs latency</td>
+                            <td class="status-good">&lt;1 μs latency</td>
+                        </tr>
+                        <tr data-tooltip="comp-flex">
+                            <td>Flexibility</td>
+                            <td class="status-good">Highly configurable</td>
+                            <td class="status-warn">Fixed policies</td>
+                        </tr>
+                        <tr data-tooltip="comp-bypass">
+                            <td>Bypass Risk</td>
+                            <td class="status-warn">Kernel vulnerabilities</td>
+                            <td class="status-good">Physically isolated</td>
+                        </tr>
+                        <tr data-tooltip="comp-update">
+                            <td>Policy Updates</td>
+                            <td class="status-good">Real-time</td>
+                            <td class="status-warn">10-100 ms delay</td>
+                        </tr>
+                        <tr data-tooltip="comp-cost">
+                            <td>CPU Overhead</td>
+                            <td class="status-bad">5-15% of host CPU</td>
+                            <td class="status-good">Near zero</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="callout">
+                <div class="callout-title">💡 The Hybrid Approach</div>
+                <div class="callout-text">
+                    Modern DPUs like NVIDIA BlueField combine hardware acceleration for wire-speed 
+                    packet processing with ARM cores for complex policy decisions. This gives you 
+                    the speed of hardware with the flexibility of software—when it works.
+                </div>
+            </div>
+        </section>
+
+        <nav class="nav-footer">
+            <a href="chapter-01-introduction.html" class="nav-link prev">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                <div>
+                    <div class="nav-link-label">Previous</div>
+                    <div class="nav-link-title">Introduction</div>
+                </div>
+            </a>
+            <a href="chapter-03-wire-speed.html" class="nav-link next">
+                <div>
+                    <div class="nav-link-label">Next Chapter</div>
+                    <div class="nav-link-title">Wire Speed Challenge</div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </nav>
+    </main>
+
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+        <div class="tooltip-arrow"></div>
+    </div>
+
+    <script>
+        const tooltips = {
+            'bank-trading': {
+                title: 'Trading Engine',
+                text: 'High-frequency trading systems require sub-millisecond latency. Any interference from other tenants could cost millions in missed trades.',
+                color: '#0071e3'
+            },
+            'bank-risk': {
+                title: 'Risk Analysis',
+                text: 'Machine learning models analyzing transactions for fraud. Contains sensitive financial data that must never leak to other tenants.',
+                color: '#0071e3'
+            },
+            'hospital-ehr': {
+                title: 'Electronic Health Records',
+                text: 'HIPAA-protected patient data. A single leak could result in massive regulatory fines and loss of patient trust.',
+                color: '#bf5af2'
+            },
+            'hospital-imaging': {
+                title: 'Medical Imaging AI',
+                text: 'GPU-intensive AI analyzing X-rays, MRIs, and CT scans. Requires consistent performance for accurate diagnoses.',
+                color: '#bf5af2'
+            },
+            'startup-llm': {
+                title: 'LLM Training',
+                text: 'Custom language model training on thousands of GPUs. Creates massive traffic bursts during gradient synchronization.',
+                color: '#30d158'
+            },
+            'startup-api': {
+                title: 'API Services',
+                text: 'Production inference serving millions of API requests. Latency-sensitive and requires predictable performance.',
+                color: '#30d158'
+            },
+            'layer-network': {
+                title: 'Network Isolation',
+                text: 'The first line of defense. Uses VLANs, VxLAN, and flow classification to ensure tenant traffic never mixes. Enforced at wire-speed by DPUs.',
+                color: '#0071e3'
+            },
+            'layer-compute': {
+                title: 'Compute Isolation',
+                text: 'Hypervisor-level isolation with VT-x/AMD-V. Includes memory encryption (AMD SEV, Intel TDX) to prevent even the host from reading tenant data.',
+                color: '#bf5af2'
+            },
+            'layer-storage': {
+                title: 'Storage Isolation',
+                text: 'Per-tenant encryption keys, volume access controls, and I/O bandwidth guarantees prevent data leakage and performance interference.',
+                color: '#ff9f0a'
+            },
+            'layer-security': {
+                title: 'Security Isolation',
+                text: 'Zero-trust architecture where every request is authenticated. Includes comprehensive audit logging and real-time threat detection.',
+                color: '#ff453a'
+            },
+            'attack-sniffing': {
+                title: 'Traffic Sniffing Attack',
+                text: 'Without network isolation, a malicious tenant could capture other tenants\' network traffic, exposing passwords, API keys, and sensitive data.',
+                color: '#ff453a'
+            },
+            'attack-noisy': {
+                title: 'Noisy Neighbor Problem',
+                text: 'One tenant\'s heavy workload consumes shared resources (network bandwidth, memory bandwidth), degrading performance for others.',
+                color: '#ff9f0a'
+            },
+            'attack-side': {
+                title: 'Side-Channel Attacks',
+                text: 'Sophisticated attacks that infer information by measuring shared resource timing (CPU cache, memory access patterns). Spectre/Meltdown are famous examples.',
+                color: '#bf5af2'
+            },
+            'attack-ddos': {
+                title: 'Resource Exhaustion',
+                text: 'A compromised or malicious tenant floods shared infrastructure, causing denial of service for other tenants on the same hardware.',
+                color: '#0071e3'
+            },
+            'comp-speed': {
+                title: 'Processing Speed',
+                text: 'Hardware isolation processes packets at line rate (nanoseconds). Software must interrupt the CPU, adding 10-100 microseconds per packet.',
+                color: '#30d158'
+            },
+            'comp-flex': {
+                title: 'Policy Flexibility',
+                text: 'Software can implement any policy logic. Hardware is limited to what\'s been designed into the silicon—typically simple flow rules.',
+                color: '#30d158'
+            },
+            'comp-bypass': {
+                title: 'Bypass Risk',
+                text: 'Software isolation can be bypassed through kernel vulnerabilities or container escapes. Hardware isolation requires physical access to defeat.',
+                color: '#ff9f0a'
+            },
+            'comp-update': {
+                title: 'Policy Update Speed',
+                text: 'Software policies update instantly. Hardware policies must be compiled and downloaded to the NIC, taking milliseconds to seconds.',
+                color: '#ff9f0a'
+            },
+            'comp-cost': {
+                title: 'CPU Overhead',
+                text: 'Software-based processing consumes host CPU cycles. At 100 Gbps, this can be 10+ CPU cores just for networking—cores that could run tenant workloads.',
+                color: '#ff453a'
+            }
+        };
+
+        const tooltipEl = document.getElementById('tooltip');
+        const tooltipTitle = tooltipEl.querySelector('.tooltip-title');
+        const tooltipText = tooltipEl.querySelector('.tooltip-text');
+
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const key = el.dataset.tooltip;
+                const data = tooltips[key];
+                if (!data) return;
+
+                tooltipTitle.textContent = data.title;
+                tooltipText.textContent = data.text;
+                tooltipEl.style.setProperty('--tooltip-color', data.color);
+
+                const rect = el.getBoundingClientRect();
+                let left = rect.left + rect.width / 2;
+                let top = rect.top - 10;
+
+                left = Math.max(160, Math.min(left, window.innerWidth - 160));
+                top = Math.max(100, top);
+
+                tooltipEl.style.left = left + 'px';
+                tooltipEl.style.top = top + 'px';
+                tooltipEl.style.transform = 'translate(-50%, -100%)';
+                tooltipEl.classList.add('visible');
+            });
+
+            el.addEventListener('mouseleave', () => {
+                tooltipEl.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>

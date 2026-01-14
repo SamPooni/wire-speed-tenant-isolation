@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wire-Speed Tenant Isolation | AI Infrastructure Documentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0f;
+            --bg-card: #111116;
+            --bg-hover: #1a1a22;
+            --text-primary: #ffffff;
+            --text-secondary: #86868b;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #2997ff;
+            --accent-purple: #bf5af2;
+            --accent-pink: #ff375f;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-cyan: #64d2ff;
+            --border-color: rgba(255,255,255,0.1);
+            --gradient-purple: linear-gradient(135deg, #bf5af2, #5e5ce6);
+            --gradient-blue: linear-gradient(135deg, #2997ff, #64d2ff);
+            --gradient-orange: linear-gradient(135deg, #ff9f0a, #ffd60a);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 80px 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(191,90,242,0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 50%, rgba(41,151,255,0.1), transparent),
+                radial-gradient(ellipse 50% 30% at 20% 80%, rgba(255,159,10,0.08), transparent);
+            pointer-events: none;
+        }
+        
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(191,90,242,0.15);
+            border: 1px solid rgba(191,90,242,0.3);
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--accent-purple);
+            margin-bottom: 24px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero-title {
+            font-size: clamp(48px, 8vw, 96px);
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: -0.03em;
+            line-height: 1.05;
+            margin-bottom: 24px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero-title .gradient-text {
+            background: linear-gradient(135deg, #fff 0%, #bf5af2 50%, #2997ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero-subtitle {
+            font-size: 20px;
+            color: var(--text-secondary);
+            text-align: center;
+            max-width: 700px;
+            margin-bottom: 48px;
+            position: relative;
+            z-index: 1;
+            font-weight: 400;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            max-width: 900px;
+            width: 100%;
+            margin-bottom: 64px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-4px);
+        }
+        
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value.purple { color: var(--accent-purple); }
+        .stat-value.blue { color: var(--accent-blue); }
+        .stat-value.orange { color: var(--accent-orange); }
+        .stat-value.green { color: var(--accent-green); }
+        
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        /* Chapters Section */
+        .chapters-section {
+            padding: 80px 40px;
+            background: var(--bg-secondary);
+        }
+        
+        .section-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+        
+        .section-label {
+            font-size: 13px;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+        }
+        
+        .section-title {
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        /* Chapter Grid */
+        .chapters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .chapter-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 32px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .chapter-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--card-accent, var(--gradient-purple));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .chapter-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(255,255,255,0.2);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        
+        .chapter-card:hover::before {
+            opacity: 1;
+        }
+        
+        .chapter-number {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chapter-number .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--card-dot, var(--accent-purple));
+        }
+        
+        .chapter-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            letter-spacing: -0.01em;
+        }
+        
+        .chapter-desc {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .chapter-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+        
+        .chapter-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* Card Accent Colors */
+        .chapter-card[data-accent="purple"] { --card-accent: linear-gradient(90deg, #bf5af2, #5e5ce6); --card-dot: #bf5af2; }
+        .chapter-card[data-accent="blue"] { --card-accent: linear-gradient(90deg, #2997ff, #64d2ff); --card-dot: #2997ff; }
+        .chapter-card[data-accent="orange"] { --card-accent: linear-gradient(90deg, #ff9f0a, #ffd60a); --card-dot: #ff9f0a; }
+        .chapter-card[data-accent="green"] { --card-accent: linear-gradient(90deg, #30d158, #63e6be); --card-dot: #30d158; }
+        .chapter-card[data-accent="pink"] { --card-accent: linear-gradient(90deg, #ff375f, #ff6b8a); --card-dot: #ff375f; }
+        .chapter-card[data-accent="cyan"] { --card-accent: linear-gradient(90deg, #64d2ff, #5ac8fa); --card-dot: #64d2ff; }
+        
+        /* Footer */
+        .footer {
+            padding: 48px 40px;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .footer-text {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .hero {
+                padding: 60px 20px;
+            }
+            .chapters-section {
+                padding: 60px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <section class="hero">
+        <div class="hero-badge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            Technical Documentation Series
+        </div>
+        <h1 class="hero-title">
+            <span class="gradient-text">Wire-Speed Tenant Isolation</span>
+        </h1>
+        <p class="hero-subtitle">
+            A comprehensive guide to implementing ultra-low latency, hardware-enforced tenant isolation 
+            in modern AI infrastructure using DPU technology and NVIDIA ASTRA architecture.
+        </p>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value purple">15</div>
+                <div class="stat-label">Chapters</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value blue">&lt;10μs</div>
+                <div class="stat-label">Target Latency</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value orange">400G</div>
+                <div class="stat-label">Wire Speed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value green">667×</div>
+                <div class="stat-label">AI Acceleration</div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="chapters-section">
+        <div class="section-header">
+            <div class="section-label">Documentation</div>
+            <h2 class="section-title">Complete Chapter Guide</h2>
+        </div>
+        <div class="chapters-grid">
+            <a href="chapter-01-introduction.html" class="chapter-card" data-accent="purple">
+                <div class="chapter-number"><span class="dot"></span>Chapter 01</div>
+                <h3 class="chapter-title">Introduction to Wire-Speed Isolation</h3>
+                <p class="chapter-desc">Understanding the fundamental challenge of isolating AI tenants at network line rate while maintaining microsecond latencies.</p>
+                <div class="chapter-meta">
+                    <span>📚 Fundamentals</span>
+                    <span>⏱️ 12 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-02-multi-tenant.html" class="chapter-card" data-accent="blue">
+                <div class="chapter-number"><span class="dot"></span>Chapter 02</div>
+                <h3 class="chapter-title">The Multi-Tenant AI Challenge</h3>
+                <p class="chapter-desc">Why isolating multiple AI workloads on shared infrastructure is exponentially harder than traditional cloud computing.</p>
+                <div class="chapter-meta">
+                    <span>🏢 Architecture</span>
+                    <span>⏱️ 15 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-03-microbursts.html" class="chapter-card" data-accent="orange">
+                <div class="chapter-number"><span class="dot"></span>Chapter 03</div>
+                <h3 class="chapter-title">AI Traffic Patterns & Microbursts</h3>
+                <p class="chapter-desc">Deep dive into the unique traffic characteristics of distributed AI training and why microbursts break traditional isolation.</p>
+                <div class="chapter-meta">
+                    <span>📊 Analysis</span>
+                    <span>⏱️ 18 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-04-dpu-fundamentals.html" class="chapter-card" data-accent="green">
+                <div class="chapter-number"><span class="dot"></span>Chapter 04</div>
+                <h3 class="chapter-title">DPU Architecture Fundamentals</h3>
+                <p class="chapter-desc">How Data Processing Units revolutionize network infrastructure by offloading packet processing from host CPUs.</p>
+                <div class="chapter-meta">
+                    <span>🔧 Hardware</span>
+                    <span>⏱️ 20 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-05-bluefield.html" class="chapter-card" data-accent="pink">
+                <div class="chapter-number"><span class="dot"></span>Chapter 05</div>
+                <h3 class="chapter-title">BlueField DPU Deep Dive</h3>
+                <p class="chapter-desc">Comprehensive comparison of BlueField-3 vs BlueField-4 with real-world performance under AI workloads.</p>
+                <div class="chapter-meta">
+                    <span>⚡ Performance</span>
+                    <span>⏱️ 22 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-06-astra.html" class="chapter-card" data-accent="cyan">
+                <div class="chapter-number"><span class="dot"></span>Chapter 06</div>
+                <h3 class="chapter-title">NVIDIA ASTRA Architecture</h3>
+                <p class="chapter-desc">Inside NVIDIA's Advanced Secure Trusted Resource Architecture for cloud-aligned security in AI infrastructure.</p>
+                <div class="chapter-meta">
+                    <span>🛡️ Security</span>
+                    <span>⏱️ 16 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-07-policy.html" class="chapter-card" data-accent="purple">
+                <div class="chapter-number"><span class="dot"></span>Chapter 07</div>
+                <h3 class="chapter-title">Policy Enforcement Mechanisms</h3>
+                <p class="chapter-desc">Hardware vs software policy enforcement trade-offs and the hybrid approaches that balance flexibility and performance.</p>
+                <div class="chapter-meta">
+                    <span>📋 Policies</span>
+                    <span>⏱️ 19 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-08-latency.html" class="chapter-card" data-accent="blue">
+                <div class="chapter-number"><span class="dot"></span>Chapter 08</div>
+                <h3 class="chapter-title">E/W Latency & Performance</h3>
+                <p class="chapter-desc">Analyzing East-West latency degradation under load and strategies for maintaining sub-10μs performance targets.</p>
+                <div class="chapter-meta">
+                    <span>📈 Metrics</span>
+                    <span>⏱️ 17 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-09-qos.html" class="chapter-card" data-accent="orange">
+                <div class="chapter-number"><span class="dot"></span>Chapter 09</div>
+                <h3 class="chapter-title">QoS Strategies: Static vs Dynamic</h3>
+                <p class="chapter-desc">When to use static policies for predictability versus dynamic policies for flexibility in AI workload management.</p>
+                <div class="chapter-meta">
+                    <span>⚖️ Trade-offs</span>
+                    <span>⏱️ 14 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-10-nvidia-astra.html" class="chapter-card" data-accent="green">
+                <div class="chapter-number"><span class="dot"></span>Chapter 10</div>
+                <h3 class="chapter-title">Real-World Challenges</h3>
+                <p class="chapter-desc">Production challenges, limitations, and the gap between vendor specifications and actual deployment performance.</p>
+                <div class="chapter-meta">
+                    <span>🔍 Case Studies</span>
+                    <span>⏱️ 21 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-11-challenges.html" class="chapter-card" data-accent="pink">
+                <div class="chapter-number"><span class="dot"></span>Chapter 11</div>
+                <h3 class="chapter-title">Emerging Solutions & Future Tech</h3>
+                <p class="chapter-desc">Intent-based networking, ML traffic classification, and the roadmap to sub-millisecond policy adaptation.</p>
+                <div class="chapter-meta">
+                    <span>🚀 Innovation</span>
+                    <span>⏱️ 15 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-12-future.html" class="chapter-card" data-accent="cyan">
+                <div class="chapter-number"><span class="dot"></span>Chapter 12</div>
+                <h3 class="chapter-title">Implementation Recommendations</h3>
+                <p class="chapter-desc">Practical guidance for deploying wire-speed isolation with immediate, medium-term, and long-term action items.</p>
+                <div class="chapter-meta">
+                    <span>✅ Guidance</span>
+                    <span>⏱️ 18 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-13-doca.html" class="chapter-card" data-accent="purple">
+                <div class="chapter-number"><span class="dot"></span>Chapter 13</div>
+                <h3 class="chapter-title">DOCA SDK & Development</h3>
+                <p class="chapter-desc">Programming the BlueField DPU with NVIDIA's Data Center Infrastructure-on-a-Chip Architecture SDK.</p>
+                <div class="chapter-meta">
+                    <span>💻 Development</span>
+                    <span>⏱️ 25 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-14-deployment-patterns.html" class="chapter-card" data-accent="blue">
+                <div class="chapter-number"><span class="dot"></span>Chapter 14</div>
+                <h3 class="chapter-title">Deployment Patterns</h3>
+                <p class="chapter-desc">Common architectures for deploying DPU-based isolation including spine-leaf, fabric, and hyperscale topologies.</p>
+                <div class="chapter-meta">
+                    <span>🏗️ Deployment</span>
+                    <span>⏱️ 16 min</span>
+                </div>
+            </a>
+            
+            <a href="chapter-15-benchmarking.html" class="chapter-card" data-accent="orange">
+                <div class="chapter-number"><span class="dot"></span>Chapter 15</div>
+                <h3 class="chapter-title">Benchmarking & Validation</h3>
+                <p class="chapter-desc">Testing methodologies, performance validation frameworks, and certification requirements for production readiness.</p>
+                <div class="chapter-meta">
+                    <span>🧪 Testing</span>
+                    <span>⏱️ 20 min</span>
+                </div>
+            </a>
+        </div>
+    </section>
+    
+    <footer class="footer">
+        <p class="footer-text">Wire-Speed Tenant Isolation Documentation • CS²B Technologies Inc. • January 2026</p>
+    </footer>
+</body>
+</html>

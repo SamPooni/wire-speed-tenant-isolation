@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 5: BlueField Architecture | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #141414;
+            --bg-card-hover: #1c1c1c;
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --accent-teal: #5ac8fa;
+            --accent-pink: #ff375f;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; height: 64px;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 1000; display: flex; align-items: center; padding: 0 24px;
+        }
+        
+        .nav-back {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--accent-blue); text-decoration: none;
+            font-size: 14px; font-weight: 500;
+        }
+        .nav-back:hover { opacity: 0.7; }
+        .nav-back svg { width: 20px; height: 20px; }
+        
+        .nav-title {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            font-size: 14px; font-weight: 600; color: var(--text-secondary);
+        }
+        
+        .hero {
+            padding: 140px 24px 80px; max-width: 900px; margin: 0 auto;
+        }
+        
+        .chapter-badge {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, rgba(191,90,242,0.2), rgba(255,55,95,0.2));
+            border: 1px solid rgba(191,90,242,0.3);
+            padding: 10px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600; color: var(--accent-purple);
+            margin-bottom: 24px;
+        }
+        
+        .chapter-badge span:first-child {
+            background: var(--accent-purple); color: white;
+            padding: 4px 10px; border-radius: 100px; font-size: 12px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px); font-weight: 700;
+            letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 24px;
+        }
+        
+        .hero-desc {
+            font-size: 20px; color: var(--text-secondary); max-width: 700px;
+        }
+        
+        .content {
+            max-width: 900px; margin: 0 auto; padding: 0 24px 120px;
+        }
+        
+        .section { margin-bottom: 80px; }
+        
+        .section-label {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--accent-purple); margin-bottom: 12px;
+        }
+        
+        .section h2 {
+            font-size: 32px; font-weight: 700;
+            letter-spacing: -0.02em; margin-bottom: 20px;
+        }
+        
+        .section p {
+            color: var(--text-secondary); font-size: 17px; margin-bottom: 24px;
+        }
+        
+        /* BlueField Chip Diagram */
+        .chip-diagram {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .chip-visual {
+            background: linear-gradient(145deg, #1a0f2e, #0f0a1a);
+            border-radius: 20px;
+            padding: 32px;
+            border: 2px solid var(--accent-purple);
+            position: relative;
+        }
+        
+        .chip-label {
+            position: absolute;
+            top: -12px;
+            left: 32px;
+            background: var(--accent-purple);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        
+        .chip-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(3, auto);
+            gap: 12px;
+        }
+        
+        .chip-block {
+            background: rgba(0,0,0,0.4);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .chip-block:hover {
+            transform: scale(1.02);
+            border-color: var(--accent-purple);
+            background: rgba(191,90,242,0.1);
+        }
+        
+        .chip-block.arm-cluster {
+            grid-column: span 2;
+            background: linear-gradient(135deg, rgba(48,209,88,0.15), rgba(48,209,88,0.05));
+            border-color: rgba(48,209,88,0.3);
+        }
+        
+        .chip-block.network-core {
+            grid-column: span 2;
+            background: linear-gradient(135deg, rgba(0,113,227,0.15), rgba(0,113,227,0.05));
+            border-color: rgba(0,113,227,0.3);
+        }
+        
+        .chip-block.crypto-engine {
+            background: linear-gradient(135deg, rgba(255,69,58,0.15), rgba(255,69,58,0.05));
+            border-color: rgba(255,69,58,0.3);
+        }
+        
+        .chip-block.regex-engine {
+            background: linear-gradient(135deg, rgba(255,159,10,0.15), rgba(255,159,10,0.05));
+            border-color: rgba(255,159,10,0.3);
+        }
+        
+        .chip-block.compress-engine {
+            background: linear-gradient(135deg, rgba(100,210,255,0.15), rgba(100,210,255,0.05));
+            border-color: rgba(100,210,255,0.3);
+        }
+        
+        .chip-block.ml-engine {
+            background: linear-gradient(135deg, rgba(191,90,242,0.15), rgba(191,90,242,0.05));
+            border-color: rgba(191,90,242,0.3);
+        }
+        
+        .chip-block.memory-ctrl {
+            grid-column: span 2;
+            background: linear-gradient(135deg, rgba(255,204,0,0.15), rgba(255,204,0,0.05));
+            border-color: rgba(255,204,0,0.3);
+        }
+        
+        .chip-block.pcie-ctrl {
+            grid-column: span 2;
+            background: linear-gradient(135deg, rgba(90,200,250,0.15), rgba(90,200,250,0.05));
+            border-color: rgba(90,200,250,0.3);
+        }
+        
+        .block-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .block-name {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .block-spec {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        
+        /* Generation Timeline */
+        .timeline-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .timeline {
+            position: relative;
+            padding-left: 40px;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--accent-purple), var(--accent-cyan));
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding: 24px;
+            margin-bottom: 24px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .timeline-item:hover {
+            border-color: var(--accent-purple);
+            transform: translateX(8px);
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -33px;
+            top: 32px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-purple);
+            border: 3px solid var(--bg-card);
+        }
+        
+        .timeline-item.current::before {
+            background: var(--accent-green);
+            box-shadow: 0 0 20px rgba(48,209,88,0.5);
+        }
+        
+        .timeline-item.future::before {
+            background: var(--accent-cyan);
+            animation: pulse-dot 2s infinite;
+        }
+        
+        @keyframes pulse-dot {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(100,210,255,0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(100,210,255,0); }
+        }
+        
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        
+        .timeline-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        
+        .timeline-year {
+            background: rgba(191,90,242,0.2);
+            color: var(--accent-purple);
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .timeline-specs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .spec-item {
+            background: rgba(0,0,0,0.3);
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .spec-value {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .spec-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        /* Subsystem Deep Dives */
+        .subsystem-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        
+        @media (max-width: 768px) {
+            .subsystem-grid { grid-template-columns: 1fr; }
+        }
+        
+        .subsystem-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 28px;
+            border: 1px solid var(--border-subtle);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+        
+        .subsystem-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-purple);
+            box-shadow: 0 12px 40px rgba(191,90,242,0.15);
+        }
+        
+        .subsystem-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .subsystem-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+        
+        .subsystem-icon.cpu { background: rgba(48,209,88,0.2); }
+        .subsystem-icon.network { background: rgba(0,113,227,0.2); }
+        .subsystem-icon.accel { background: rgba(255,159,10,0.2); }
+        .subsystem-icon.security { background: rgba(255,69,58,0.2); }
+        
+        .subsystem-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .subsystem-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .subsystem-details {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 14px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+        
+        .detail-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .detail-value {
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        /* ConnectX Integration Diagram */
+        .connectx-diagram {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .connectx-visual {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .connectx-box {
+            background: linear-gradient(145deg, rgba(0,113,227,0.2), rgba(0,113,227,0.05));
+            border: 2px solid var(--accent-blue);
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .connectx-box:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(0,113,227,0.3);
+        }
+        
+        .connectx-label {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        .connectx-speed {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+        
+        .connectx-feature {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .plus-sign {
+            font-size: 48px;
+            color: var(--accent-purple);
+            font-weight: 300;
+        }
+        
+        .arm-box {
+            background: linear-gradient(145deg, rgba(48,209,88,0.2), rgba(48,209,88,0.05));
+            border: 2px solid var(--accent-green);
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .arm-box:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(48,209,88,0.3);
+        }
+        
+        .arm-label {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-teal));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        .equals-sign {
+            font-size: 48px;
+            color: var(--accent-purple);
+            font-weight: 300;
+        }
+        
+        .bf-result {
+            background: linear-gradient(145deg, rgba(191,90,242,0.2), rgba(191,90,242,0.05));
+            border: 2px solid var(--accent-purple);
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+            cursor: help;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .bf-result:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(191,90,242,0.3);
+        }
+        
+        .bf-label {
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        
+        /* DOCA Software Stack */
+        .stack-container {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 32px;
+        }
+        
+        .stack-layers {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .stack-layer {
+            padding: 20px 24px;
+            border-radius: 12px;
+            cursor: help;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .stack-layer:hover {
+            transform: translateX(8px);
+        }
+        
+        .stack-layer.app {
+            background: linear-gradient(90deg, rgba(191,90,242,0.3), rgba(191,90,242,0.1));
+            border-left: 4px solid var(--accent-purple);
+        }
+        
+        .stack-layer.services {
+            background: linear-gradient(90deg, rgba(0,113,227,0.3), rgba(0,113,227,0.1));
+            border-left: 4px solid var(--accent-blue);
+        }
+        
+        .stack-layer.runtime {
+            background: linear-gradient(90deg, rgba(48,209,88,0.3), rgba(48,209,88,0.1));
+            border-left: 4px solid var(--accent-green);
+        }
+        
+        .stack-layer.drivers {
+            background: linear-gradient(90deg, rgba(255,159,10,0.3), rgba(255,159,10,0.1));
+            border-left: 4px solid var(--accent-orange);
+        }
+        
+        .stack-layer.hardware {
+            background: linear-gradient(90deg, rgba(255,69,58,0.3), rgba(255,69,58,0.1));
+            border-left: 4px solid var(--accent-red);
+        }
+        
+        .layer-name {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .layer-components {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        /* Footer Navigation */
+        .chapter-nav {
+            display: flex; justify-content: space-between;
+            padding: 40px 0;
+            border-top: 1px solid var(--border-subtle);
+            margin-top: 60px;
+        }
+        
+        .nav-link {
+            display: flex; flex-direction: column; gap: 4px;
+            text-decoration: none; padding: 16px 24px;
+            border-radius: 16px; transition: all 0.3s ease;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            max-width: 280px;
+        }
+        
+        .nav-link:hover {
+            border-color: var(--accent-purple);
+            transform: translateY(-2px);
+        }
+        
+        .nav-link-label {
+            font-size: 12px; color: var(--text-tertiary);
+            text-transform: uppercase; letter-spacing: 0.1em;
+        }
+        
+        .nav-link-title {
+            font-size: 16px; font-weight: 600; color: var(--text-primary);
+        }
+        
+        .nav-link.next { text-align: right; margin-left: auto; }
+        
+        /* Tooltip */
+        .tooltip {
+            position: fixed;
+            background: #0a0a14;
+            border: 2px solid var(--accent-purple);
+            border-radius: 12px;
+            padding: 16px 20px;
+            max-width: 320px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: all 0.2s ease;
+        }
+        
+        .tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .tooltip-title {
+            font-size: 14px; font-weight: 600; margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .tooltip-text {
+            font-size: 13px; color: var(--text-secondary); line-height: 1.5;
+        }
+        
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: var(--accent-purple);
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html" class="nav-back">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            All Chapters
+        </a>
+        <div class="nav-title">Wire-Speed Tenant Isolation</div>
+    </nav>
+
+    <header class="hero">
+        <div class="chapter-badge">
+            <span>05</span>
+            <span>Hardware Deep Dive</span>
+        </div>
+        <h1>BlueField Architecture</h1>
+        <p class="hero-desc">NVIDIA's BlueField DPU combines ConnectX networking with ARM processing power and specialized accelerators—creating the industry's most advanced infrastructure processor.</p>
+    </header>
+
+    <main class="content">
+        <!-- Chip Architecture -->
+        <section class="section">
+            <div class="section-label">Silicon Layout</div>
+            <h2>Inside the BlueField-3 Chip</h2>
+            <p>The BlueField-3 integrates multiple specialized engines on a single die. Each block is optimized for specific infrastructure tasks, working together to achieve wire-speed processing.</p>
+            
+            <div class="chip-diagram">
+                <div class="chip-visual">
+                    <div class="chip-label">BlueField-3 Die</div>
+                    <div class="chip-grid">
+                        <div class="chip-block arm-cluster" data-tooltip="chip-arm">
+                            <div class="block-icon">🧠</div>
+                            <div class="block-name">ARM Complex</div>
+                            <div class="block-spec">16× Cortex-A78 @ 3.0 GHz</div>
+                        </div>
+                        
+                        <div class="chip-block network-core" data-tooltip="chip-network">
+                            <div class="block-icon">🌐</div>
+                            <div class="block-name">ConnectX-7 Core</div>
+                            <div class="block-spec">400G + RDMA + RoCE</div>
+                        </div>
+                        
+                        <div class="chip-block crypto-engine" data-tooltip="chip-crypto">
+                            <div class="block-icon">🔐</div>
+                            <div class="block-name">Crypto</div>
+                            <div class="block-spec">IPsec @ 400G</div>
+                        </div>
+                        
+                        <div class="chip-block regex-engine" data-tooltip="chip-regex">
+                            <div class="block-icon">🔍</div>
+                            <div class="block-name">RegEx</div>
+                            <div class="block-spec">DPI @ 400G</div>
+                        </div>
+                        
+                        <div class="chip-block compress-engine" data-tooltip="chip-compress">
+                            <div class="block-icon">📦</div>
+                            <div class="block-name">Compress</div>
+                            <div class="block-spec">LZ4/zlib HW</div>
+                        </div>
+                        
+                        <div class="chip-block ml-engine" data-tooltip="chip-ml">
+                            <div class="block-icon">🤖</div>
+                            <div class="block-name">ML Infer</div>
+                            <div class="block-spec">Traffic Class</div>
+                        </div>
+                        
+                        <div class="chip-block memory-ctrl" data-tooltip="chip-memory">
+                            <div class="block-icon">💾</div>
+                            <div class="block-name">Memory Controller</div>
+                            <div class="block-spec">DDR5-5600 + 16GB HBM2e</div>
+                        </div>
+                        
+                        <div class="chip-block pcie-ctrl" data-tooltip="chip-pcie">
+                            <div class="block-icon">⚡</div>
+                            <div class="block-name">PCIe Gen5 Controller</div>
+                            <div class="block-spec">128 lanes × 32 GT/s</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Generation Timeline -->
+        <section class="section">
+            <div class="section-label">Evolution</div>
+            <h2>BlueField Generations</h2>
+            <p>Each BlueField generation doubles key capabilities while adding new accelerators and features. The roadmap extends to 1.6 Tbps and beyond.</p>
+            
+            <div class="timeline-container">
+                <div class="timeline">
+                    <div class="timeline-item" data-tooltip="gen-bf1">
+                        <div class="timeline-header">
+                            <div class="timeline-title">BlueField-1</div>
+                            <div class="timeline-year">2019</div>
+                        </div>
+                        <div class="timeline-specs">
+                            <div class="spec-item">
+                                <div class="spec-value">100G</div>
+                                <div class="spec-label">Bandwidth</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="spec-value">8× A72</div>
+                                <div class="spec-label">ARM Cores</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="spec-value">16GB</div>
+                                <div class="spec-label">DDR4</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-item" data-tooltip="gen-bf2">
+                        <div class="timeline-header">
+                            <div class="timeline-title">BlueField-2</div>
+                            <div class="timeline-year">2020</div>
+                        </div>
+                        <div class="timeline-specs">
+                            <div class="spec-item">
+                                <div class="spec-value">200G</div>
+                                <div class="spec-label">Bandwidth</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="spec-value">8× A72</div>
+                                <div class="spec-label">ARM Cores</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="spec-value">16GB</div>
+                                <div class="spec-label">DDR4</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-item current" data-tooltip="gen-bf3">
+                        <div class="timeline-header">
+                            <div class="timeline-title">BlueField-3</div>
+                            <div class="timeline-year">2022</div>
+                        </div>
+                        <div class="timeline-specs">
+                            <div class="spec-item">
+                                <div class="spec-value">400G</div>
+                                <div class="spec-label">Bandwidth</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="spec-value">16× A78</div>
+                                <div class="spec-label">ARM Cores</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="spec-value">32GB+HBM</div>
+                                <div class="spec-label">Memory</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-item future" data-tooltip="gen-bf4">
+                        <div class="timeline-header">
+                            <div class="timeline-title">BlueField-4</div>
+                            <div class="timeline-year">2025</div>
+                        </div>
+                        <div class="timeline-specs">
+                            <div class="spec-item">
+                                <div class="spec-value">800G</div>
+                                <div class="spec-label">Bandwidth</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="spec-value">24× Grace</div>
+                                <div class="spec-label">ARM Cores</div>
+                            </div>
+                            <div class="spec-item">
+                                <div class="spec-value">64GB+HBM3</div>
+                                <div class="spec-label">Memory</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- ConnectX + ARM = BlueField -->
+        <section class="section">
+            <div class="section-label">The Formula</div>
+            <h2>How BlueField Came to Be</h2>
+            <p>BlueField combines NVIDIA's proven ConnectX network adapter technology with ARM processing power. The result is a fully programmable infrastructure processor.</p>
+            
+            <div class="connectx-diagram">
+                <div class="connectx-visual">
+                    <div class="connectx-box" data-tooltip="connectx">
+                        <div class="connectx-label">ConnectX-7</div>
+                        <div class="connectx-speed">400G</div>
+                        <div class="connectx-feature">Network Adapter</div>
+                    </div>
+                    
+                    <div class="plus-sign">+</div>
+                    
+                    <div class="arm-box" data-tooltip="arm-complex">
+                        <div class="arm-label">ARM Neoverse</div>
+                        <div class="connectx-speed">16 Cores</div>
+                        <div class="connectx-feature">Full Linux OS</div>
+                    </div>
+                    
+                    <div class="equals-sign">=</div>
+                    
+                    <div class="bf-result" data-tooltip="bluefield-result">
+                        <div class="bf-label">BlueField-3</div>
+                        <div class="connectx-speed">DPU</div>
+                        <div class="connectx-feature">Programmable SmartNIC</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Subsystem Deep Dives -->
+        <section class="section">
+            <div class="section-label">Subsystems</div>
+            <h2>Key Architectural Components</h2>
+            <p>Each subsystem in BlueField is purpose-built for infrastructure workloads. Together, they enable complete offload of networking, storage, and security.</p>
+            
+            <div class="subsystem-grid">
+                <div class="subsystem-card" data-tooltip="subsystem-cpu">
+                    <div class="subsystem-header">
+                        <div class="subsystem-icon cpu">🧠</div>
+                        <div>
+                            <div class="subsystem-title">ARM CPU Complex</div>
+                            <div class="subsystem-subtitle">Programmable Control Plane</div>
+                        </div>
+                    </div>
+                    <div class="subsystem-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Architecture</span>
+                            <span class="detail-value">ARMv8.2-A</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Cores</span>
+                            <span class="detail-value">16× Cortex-A78</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Clock Speed</span>
+                            <span class="detail-value">3.0 GHz</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">L3 Cache</span>
+                            <span class="detail-value">32 MB shared</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="subsystem-card" data-tooltip="subsystem-network">
+                    <div class="subsystem-header">
+                        <div class="subsystem-icon network">🌐</div>
+                        <div>
+                            <div class="subsystem-title">Network Engine</div>
+                            <div class="subsystem-subtitle">Wire-Speed Data Plane</div>
+                        </div>
+                    </div>
+                    <div class="subsystem-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Technology</span>
+                            <span class="detail-value">ConnectX-7</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Bandwidth</span>
+                            <span class="detail-value">400 Gbps</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">RDMA</span>
+                            <span class="detail-value">RoCE v2</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Flow Rules</span>
+                            <span class="detail-value">16M entries</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="subsystem-card" data-tooltip="subsystem-accel">
+                    <div class="subsystem-header">
+                        <div class="subsystem-icon accel">🚀</div>
+                        <div>
+                            <div class="subsystem-title">Accelerator Complex</div>
+                            <div class="subsystem-subtitle">Fixed-Function Engines</div>
+                        </div>
+                    </div>
+                    <div class="subsystem-details">
+                        <div class="detail-row">
+                            <span class="detail-label">RegEx</span>
+                            <span class="detail-value">400 Gbps DPI</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Compress</span>
+                            <span class="detail-value">100 GB/s</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">ML Inference</span>
+                            <span class="detail-value">10M cls/sec</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Storage</span>
+                            <span class="detail-value">NVMe/SNAP</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="subsystem-card" data-tooltip="subsystem-security">
+                    <div class="subsystem-header">
+                        <div class="subsystem-icon security">🔒</div>
+                        <div>
+                            <div class="subsystem-title">Security Engine</div>
+                            <div class="subsystem-subtitle">Inline Cryptography</div>
+                        </div>
+                    </div>
+                    <div class="subsystem-details">
+                        <div class="detail-row">
+                            <span class="detail-label">IPsec</span>
+                            <span class="detail-value">400 Gbps</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">TLS</span>
+                            <span class="detail-value">AES-256-GCM</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Secure Boot</span>
+                            <span class="detail-value">TPM 2.0</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Root of Trust</span>
+                            <span class="detail-value">Hardware</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- DOCA Software Stack -->
+        <section class="section">
+            <div class="section-label">Software</div>
+            <h2>DOCA Software Stack</h2>
+            <p>DOCA (Data Center Infrastructure on a Chip Architecture) is the SDK for BlueField. It provides APIs to program every accelerator and build custom infrastructure services.</p>
+            
+            <div class="stack-container">
+                <div class="stack-layers">
+                    <div class="stack-layer app" data-tooltip="stack-app">
+                        <div>
+                            <div class="layer-name">Applications</div>
+                            <div class="layer-components">Custom DPU Apps, NVIDIA Services</div>
+                        </div>
+                        <span style="font-size: 24px;">📱</span>
+                    </div>
+                    
+                    <div class="stack-layer services" data-tooltip="stack-services">
+                        <div>
+                            <div class="layer-name">DOCA Services</div>
+                            <div class="layer-components">Firewall, IPS, Gateway, Storage</div>
+                        </div>
+                        <span style="font-size: 24px;">⚙️</span>
+                    </div>
+                    
+                    <div class="stack-layer runtime" data-tooltip="stack-runtime">
+                        <div>
+                            <div class="layer-name">DOCA Runtime</div>
+                            <div class="layer-components">Flow, Crypto, RegEx, Compress APIs</div>
+                        </div>
+                        <span style="font-size: 24px;">🔧</span>
+                    </div>
+                    
+                    <div class="stack-layer drivers" data-tooltip="stack-drivers">
+                        <div>
+                            <div class="layer-name">Drivers & Firmware</div>
+                            <div class="layer-components">MLNX_OFED, DPDK, SPDK</div>
+                        </div>
+                        <span style="font-size: 24px;">💿</span>
+                    </div>
+                    
+                    <div class="stack-layer hardware" data-tooltip="stack-hardware">
+                        <div>
+                            <div class="layer-name">BlueField Hardware</div>
+                            <div class="layer-components">ARM + ConnectX + Accelerators</div>
+                        </div>
+                        <span style="font-size: 24px;">🔩</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Chapter Navigation -->
+        <nav class="chapter-nav">
+            <a href="chapter-04-understanding-dpus.html" class="nav-link prev">
+                <span class="nav-link-label">Previous</span>
+                <span class="nav-link-title">← Understanding DPUs</span>
+            </a>
+            <a href="chapter-06-microbursts-ai-traffic.html" class="nav-link next">
+                <span class="nav-link-label">Next</span>
+                <span class="nav-link-title">Microbursts & AI Traffic →</span>
+            </a>
+        </nav>
+    </main>
+
+    <!-- Tooltip -->
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+    </div>
+
+    <script>
+        const tooltipData = {
+            // Chip blocks
+            'chip-arm': {
+                title: 'ARM CPU Complex',
+                text: '16 high-performance Cortex-A78 cores at 3.0 GHz with 32MB shared L3 cache. Runs full Linux (DOCA OS) for programmable control plane and custom applications.'
+            },
+            'chip-network': {
+                title: 'ConnectX-7 Network Core',
+                text: 'NVIDIA\'s 7th generation network ASIC. Handles 400G Ethernet, RDMA/RoCE, flow steering, and packet processing at wire speed with hardware offloads.'
+            },
+            'chip-crypto': {
+                title: 'Inline Cryptography Engine',
+                text: 'Hardware AES-GCM-256 encryption/decryption at 400 Gbps. Supports IPsec and TLS with zero performance impact. Handles millions of security associations.'
+            },
+            'chip-regex': {
+                title: 'Regular Expression Engine',
+                text: '400 Gbps deep packet inspection using hardware RegEx matching. Used for application identification, security scanning, and protocol detection.'
+            },
+            'chip-compress': {
+                title: 'Compression Accelerator',
+                text: 'Hardware LZ4 and zlib compression at 100 GB/s. Used for storage compression, network traffic reduction, and log processing.'
+            },
+            'chip-ml': {
+                title: 'ML Inference Engine',
+                text: 'On-chip neural network inference for traffic classification. Identifies application types, detects anomalies, and enables smart QoS decisions.'
+            },
+            'chip-memory': {
+                title: 'Hybrid Memory System',
+                text: 'DDR5-5600 for general memory plus 16GB HBM2e for packet buffers. HBM provides 1+ TB/s bandwidth for zero-copy packet processing.'
+            },
+            'chip-pcie': {
+                title: 'PCIe Gen5 Controller',
+                text: '128 PCIe Gen5 lanes at 32 GT/s for host connectivity and NVMe storage. Supports SR-IOV for hardware virtualization of network and storage.'
+            },
+            
+            // Generations
+            'gen-bf1': {
+                title: 'BlueField-1 (2019)',
+                text: 'First-generation SmartNIC with 100G and 8 ARM cores. Introduced programmable DPU concept. Used in early cloud deployments for network virtualization.'
+            },
+            'gen-bf2': {
+                title: 'BlueField-2 (2020)',
+                text: 'Doubled network speed to 200G. Added enhanced crypto and storage offloads. Major adoption by hyperscalers for infrastructure offload.'
+            },
+            'gen-bf3': {
+                title: 'BlueField-3 (2022)',
+                text: 'Current generation with 400G, 16 A78 cores, HBM memory. Full ASTRA support for tenant isolation. Production deployment in AI infrastructure.'
+            },
+            'gen-bf4': {
+                title: 'BlueField-4 (2025)',
+                text: 'Next generation targeting 800G with Grace ARM cores. Expected to include advanced AI features and tighter GPU integration for AI workloads.'
+            },
+            
+            // Formula boxes
+            'connectx': {
+                title: 'ConnectX-7 Network Adapter',
+                text: 'Industry-leading Ethernet adapter with hardware RDMA, flow steering, and virtualization. Powers the networking capabilities of BlueField.'
+            },
+            'arm-complex': {
+                title: 'ARM Neoverse Platform',
+                text: 'Server-class ARM cores running full Linux. Provides programmability for custom network functions, security services, and infrastructure management.'
+            },
+            'bluefield-result': {
+                title: 'BlueField DPU',
+                text: 'The combination creates a programmable infrastructure processor: ConnectX for wire-speed data plane, ARM for flexible control plane, plus specialized accelerators.'
+            },
+            
+            // Subsystems
+            'subsystem-cpu': {
+                title: 'ARM Processing Complex',
+                text: 'Runs DOCA OS (Ubuntu-based) with full Linux kernel. Executes custom applications, OVS datapath, and infrastructure services. Programmable via standard tools and APIs.'
+            },
+            'subsystem-network': {
+                title: 'Network Processing Engine',
+                text: 'ConnectX-7 ASIC handles all packet processing at wire speed. Supports 16M flow table entries, hardware NAT, VXLAN, and RDMA. Zero host CPU involvement.'
+            },
+            'subsystem-accel': {
+                title: 'Specialized Accelerators',
+                text: 'Fixed-function engines for compute-intensive tasks. Each accelerator operates at full line rate independently. APIs via DOCA SDK for integration.'
+            },
+            'subsystem-security': {
+                title: 'Crypto & Security Complex',
+                text: 'Hardware-rooted security with TPM 2.0, secure boot, and inline encryption. All crypto at line rate with no latency penalty. Tenant isolation enforced in hardware.'
+            },
+            
+            // DOCA Stack
+            'stack-app': {
+                title: 'Application Layer',
+                text: 'Custom DPU applications and NVIDIA-provided services. Examples: firewall, load balancer, storage gateway. Built using DOCA APIs and running on ARM cores.'
+            },
+            'stack-services': {
+                title: 'DOCA Services',
+                text: 'Pre-built infrastructure services from NVIDIA. Includes L4 firewall, IDS/IPS, NVMe-oF gateway, and more. Reference implementations for common use cases.'
+            },
+            'stack-runtime': {
+                title: 'DOCA Runtime APIs',
+                text: 'Programming interfaces for all DPU capabilities. Flow API for packet processing, Crypto API for encryption, RegEx API for inspection, and more.'
+            },
+            'stack-drivers': {
+                title: 'Drivers & Firmware',
+                text: 'Low-level software connecting DOCA to hardware. Includes MLNX_OFED drivers, DPDK for high-performance networking, and SPDK for storage.'
+            },
+            'stack-hardware': {
+                title: 'BlueField Hardware',
+                text: 'The physical DPU chip and board. All software runs on top of this foundation. Hardware provides the actual acceleration and isolation guarantees.'
+            }
+        };
+
+        const tooltip = document.getElementById('tooltip');
+        const tooltipTitle = tooltip.querySelector('.tooltip-title');
+        const tooltipText = tooltip.querySelector('.tooltip-text');
+
+        document.querySelectorAll('[data-tooltip]').forEach(element => {
+            element.addEventListener('mouseenter', (e) => {
+                const key = element.getAttribute('data-tooltip');
+                const data = tooltipData[key];
+                if (data) {
+                    tooltipTitle.textContent = data.title;
+                    tooltipText.textContent = data.text;
+                    
+                    const rect = element.getBoundingClientRect();
+                    let left = rect.left + (rect.width / 2) - 160;
+                    let top = rect.top - 10;
+                    
+                    if (left < 10) left = 10;
+                    if (left + 320 > window.innerWidth - 10) left = window.innerWidth - 330;
+                    
+                    tooltip.style.left = left + 'px';
+                    tooltip.style.top = 'auto';
+                    tooltip.style.bottom = (window.innerHeight - top) + 'px';
+                    
+                    tooltip.classList.add('visible');
+                }
+            });
+            
+            element.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chapter 3: The Wire Speed Challenge | Wire-Speed Tenant Isolation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-card: #141414;
+            --bg-card-hover: #1c1c1c;
+            --text-primary: #f5f5f7;
+            --text-secondary: #a1a1a6;
+            --text-tertiary: #6e6e73;
+            --accent-blue: #0071e3;
+            --accent-purple: #bf5af2;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-cyan: #64d2ff;
+            --border-subtle: rgba(255,255,255,0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .nav {
+            position: fixed; top: 0; left: 0; right: 0; height: 64px;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+            z-index: 1000; display: flex; align-items: center; padding: 0 24px;
+        }
+        
+        .nav-back {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--accent-blue); text-decoration: none;
+            font-size: 14px; font-weight: 500;
+        }
+        .nav-back:hover { opacity: 0.7; }
+        .nav-back svg { width: 20px; height: 20px; }
+        
+        .nav-title {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            font-size: 14px; font-weight: 600; color: var(--text-secondary);
+        }
+        
+        .hero {
+            padding: 140px 24px 80px; max-width: 900px; margin: 0 auto;
+        }
+        
+        .chapter-badge {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: linear-gradient(135deg, rgba(255,159,10,0.2), rgba(255,204,0,0.2));
+            border: 1px solid rgba(255,159,10,0.3);
+            padding: 10px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600; color: var(--accent-orange);
+            margin-bottom: 24px;
+        }
+        
+        .chapter-badge span:first-child {
+            background: var(--accent-orange); color: black;
+            padding: 4px 10px; border-radius: 100px; font-size: 12px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px); font-weight: 700;
+            letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 24px;
+        }
+        
+        .hero-desc {
+            font-size: 20px; color: var(--text-secondary); max-width: 700px;
+        }
+        
+        .content {
+            max-width: 900px; margin: 0 auto; padding: 0 24px 120px;
+        }
+        
+        .section { margin-bottom: 80px; }
+        
+        .section-label {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.15em; color: var(--accent-orange); margin-bottom: 12px;
+        }
+        
+        .section h2 {
+            font-size: 32px; font-weight: 700;
+            letter-spacing: -0.02em; margin-bottom: 20px;
+        }
+        
+        .section p {
+            color: var(--text-secondary); font-size: 17px; margin-bottom: 24px;
+        }
+        
+        .diagram-container {
+            background: var(--bg-card); border-radius: 24px;
+            border: 1px solid var(--border-subtle);
+            padding: 40px; margin: 40px 0; overflow: hidden;
+        }
+        
+        .diagram-title {
+            font-size: 14px; font-weight: 600; color: var(--text-tertiary);
+            margin-bottom: 32px; text-transform: uppercase; letter-spacing: 0.1em;
+        }
+        
+        /* Speed Visualization */
+        .speed-viz {
+            display: flex; flex-direction: column; gap: 24px;
+        }
+        
+        .speed-bar {
+            display: flex; align-items: center; gap: 16px;
+        }
+        
+        .speed-label {
+            min-width: 120px; font-size: 14px; font-weight: 500;
+        }
+        
+        .speed-track {
+            flex: 1; height: 40px; background: rgba(255,255,255,0.05);
+            border-radius: 8px; overflow: hidden; position: relative;
+        }
+        
+        .speed-fill {
+            height: 100%; border-radius: 8px;
+            display: flex; align-items: center; justify-content: flex-end;
+            padding-right: 12px; font-size: 13px; font-weight: 600;
+            transition: width 1s ease-out;
+        }
+        
+        .speed-25 { width: 6.25%; background: linear-gradient(90deg, #30d158, #4cd964); }
+        .speed-100 { width: 25%; background: linear-gradient(90deg, #0071e3, #5ac8fa); }
+        .speed-200 { width: 50%; background: linear-gradient(90deg, #bf5af2, #da8fff); }
+        .speed-400 { width: 100%; background: linear-gradient(90deg, #ff9f0a, #ffcc00); }
+        
+        /* Packet Rate Calculator */
+        .calc-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px; margin: 32px 0;
+        }
+        
+        .calc-card {
+            background: var(--bg-card); border: 1px solid var(--border-subtle);
+            border-radius: 20px; padding: 28px; text-align: center;
+            cursor: help; transition: all 0.3s;
+        }
+        
+        .calc-card:hover {
+            background: var(--bg-card-hover); transform: translateY(-4px);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+        }
+        
+        .calc-value {
+            font-size: 42px; font-weight: 700; margin-bottom: 8px;
+        }
+        
+        .calc-unit {
+            font-size: 14px; color: var(--text-tertiary);
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        
+        .calc-card:nth-child(1) .calc-value { color: var(--accent-orange); }
+        .calc-card:nth-child(2) .calc-value { color: var(--accent-cyan); }
+        .calc-card:nth-child(3) .calc-value { color: var(--accent-green); }
+        .calc-card:nth-child(4) .calc-value { color: var(--accent-purple); }
+        
+        /* Timeline visualization */
+        .timeline {
+            display: flex; flex-direction: column; gap: 0;
+            border-left: 2px solid var(--border-subtle);
+            margin-left: 20px; padding-left: 32px;
+        }
+        
+        .timeline-item {
+            position: relative; padding: 24px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .timeline-item:last-child { border-bottom: none; }
+        
+        .timeline-dot {
+            position: absolute; left: -41px; top: 28px;
+            width: 16px; height: 16px; border-radius: 50%;
+            border: 3px solid var(--dot-color);
+            background: var(--bg-primary);
+        }
+        
+        .timeline-time {
+            font-size: 24px; font-weight: 700;
+            color: var(--dot-color); margin-bottom: 8px;
+        }
+        
+        .timeline-title {
+            font-size: 16px; font-weight: 600; margin-bottom: 4px;
+        }
+        
+        .timeline-desc {
+            font-size: 14px; color: var(--text-secondary);
+        }
+        
+        .timeline-item:nth-child(1) { --dot-color: var(--accent-green); }
+        .timeline-item:nth-child(2) { --dot-color: var(--accent-blue); }
+        .timeline-item:nth-child(3) { --dot-color: var(--accent-orange); }
+        .timeline-item:nth-child(4) { --dot-color: var(--accent-red); }
+        
+        /* Processing Pipeline */
+        .pipeline {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 8px;
+        }
+        
+        .pipeline-stage {
+            flex: 1; min-width: 100px; padding: 20px 16px;
+            background: linear-gradient(135deg, rgba(var(--stage-rgb), 0.15), rgba(var(--stage-rgb), 0.05));
+            border: 1px solid rgba(var(--stage-rgb), 0.3);
+            border-radius: 12px; text-align: center;
+            cursor: help; transition: all 0.3s;
+        }
+        
+        .pipeline-stage:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        
+        .stage-icon { font-size: 24px; margin-bottom: 8px; }
+        .stage-name { font-size: 12px; font-weight: 600; }
+        .stage-time { font-size: 11px; opacity: 0.7; margin-top: 4px; }
+        
+        .pipeline-arrow {
+            font-size: 20px; color: var(--text-tertiary);
+        }
+        
+        .stage-1 { --stage-rgb: 0, 113, 227; color: var(--accent-cyan); }
+        .stage-2 { --stage-rgb: 191, 90, 242; color: #da8fff; }
+        .stage-3 { --stage-rgb: 255, 159, 10; color: var(--accent-orange); }
+        .stage-4 { --stage-rgb: 48, 209, 88; color: var(--accent-green); }
+        .stage-5 { --stage-rgb: 255, 69, 58; color: var(--accent-red); }
+        
+        /* Callout */
+        .callout {
+            background: linear-gradient(135deg, rgba(255,159,10,0.1), rgba(255,204,0,0.05));
+            border: 1px solid rgba(255,159,10,0.2);
+            border-left: 4px solid var(--accent-orange);
+            border-radius: 16px; padding: 24px 28px; margin: 32px 0;
+        }
+        
+        .callout-title {
+            font-size: 15px; font-weight: 600;
+            color: var(--accent-orange); margin-bottom: 8px;
+        }
+        
+        .callout-text {
+            font-size: 15px; color: var(--text-secondary);
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: fixed; background: #0a0a14;
+            border: 2px solid var(--tooltip-color, var(--accent-orange));
+            border-radius: 12px; padding: 16px 20px; max-width: 300px;
+            z-index: 1000; pointer-events: none; opacity: 0;
+            transform: translateY(10px); transition: all 0.2s ease-out;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        
+        .tooltip.visible { opacity: 1; transform: translateY(0); }
+        
+        .tooltip-title {
+            font-size: 13px; font-weight: 600;
+            color: var(--tooltip-color, var(--accent-orange)); margin-bottom: 8px;
+        }
+        
+        .tooltip-text {
+            font-size: 13px; color: var(--text-primary); line-height: 1.5;
+        }
+        
+        .tooltip-arrow {
+            position: absolute; bottom: -8px; left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+            width: 12px; height: 12px; background: #0a0a14;
+            border-right: 2px solid var(--tooltip-color, var(--accent-orange));
+            border-bottom: 2px solid var(--tooltip-color, var(--accent-orange));
+        }
+        
+        /* Navigation */
+        .nav-footer {
+            display: flex; justify-content: space-between;
+            padding: 32px 0; border-top: 1px solid var(--border-subtle);
+            margin-top: 80px;
+        }
+        
+        .nav-link {
+            display: flex; align-items: center; gap: 12px;
+            padding: 16px 24px; background: var(--bg-card);
+            border: 1px solid var(--border-subtle); border-radius: 16px;
+            text-decoration: none; color: var(--text-primary); transition: all 0.3s;
+        }
+        
+        .nav-link:hover { background: var(--bg-card-hover); transform: translateX(4px); }
+        .nav-link.prev:hover { transform: translateX(-4px); }
+        
+        .nav-link-label {
+            font-size: 12px; color: var(--text-tertiary);
+            text-transform: uppercase; letter-spacing: 0.1em;
+        }
+        .nav-link-title { font-size: 15px; font-weight: 600; }
+        .nav-link svg { width: 20px; height: 20px; color: var(--accent-blue); }
+        
+        @media (max-width: 768px) {
+            .hero { padding: 100px 20px 60px; }
+            .content { padding: 0 20px 80px; }
+            .diagram-container { padding: 24px; }
+            .pipeline { flex-direction: column; }
+            .pipeline-arrow { transform: rotate(90deg); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <a href="index.html" class="nav-back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Index
+        </a>
+        <div class="nav-title">Chapter 3 of 12</div>
+    </nav>
+
+    <header class="hero">
+        <div class="chapter-badge">
+            <span>03</span>
+            <span>Performance Engineering</span>
+        </div>
+        <h1>The Wire Speed Challenge</h1>
+        <p class="hero-desc">
+            Understanding why processing packets at 100-400 Gbps without dropping 
+            any is one of the hardest problems in computer engineering.
+        </p>
+    </header>
+
+    <main class="content">
+        <section class="section">
+            <div class="section-label">The Numbers</div>
+            <h2>What Does Wire Speed Mean?</h2>
+            <p>
+                "Wire speed" means processing every single packet at the full line rate of the 
+                network interface—no drops, no queuing delays, no bottlenecks. At modern speeds, 
+                the numbers are staggering.
+            </p>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">Network Speed Evolution</div>
+                <div class="speed-viz">
+                    <div class="speed-bar">
+                        <div class="speed-label" style="color: var(--accent-green);">25 Gbps</div>
+                        <div class="speed-track">
+                            <div class="speed-fill speed-25">25G</div>
+                        </div>
+                    </div>
+                    <div class="speed-bar">
+                        <div class="speed-label" style="color: var(--accent-blue);">100 Gbps</div>
+                        <div class="speed-track">
+                            <div class="speed-fill speed-100">100G</div>
+                        </div>
+                    </div>
+                    <div class="speed-bar">
+                        <div class="speed-label" style="color: var(--accent-purple);">200 Gbps</div>
+                        <div class="speed-track">
+                            <div class="speed-fill speed-200">200G</div>
+                        </div>
+                    </div>
+                    <div class="speed-bar">
+                        <div class="speed-label" style="color: var(--accent-orange);">400 Gbps</div>
+                        <div class="speed-track">
+                            <div class="speed-fill speed-400">400G</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="calc-grid">
+                <div class="calc-card" data-tooltip="calc-bandwidth">
+                    <div class="calc-value">400</div>
+                    <div class="calc-unit">Gbps Bandwidth</div>
+                </div>
+                <div class="calc-card" data-tooltip="calc-packets">
+                    <div class="calc-value">595M</div>
+                    <div class="calc-unit">Packets/Second</div>
+                </div>
+                <div class="calc-card" data-tooltip="calc-time">
+                    <div class="calc-value">1.7</div>
+                    <div class="calc-unit">Nanoseconds/Packet</div>
+                </div>
+                <div class="calc-card" data-tooltip="calc-cycles">
+                    <div class="calc-value">~5</div>
+                    <div class="calc-unit">CPU Cycles/Packet</div>
+                </div>
+            </div>
+            
+            <div class="callout">
+                <div class="callout-title">⚡ The Impossible Math</div>
+                <div class="callout-text">
+                    At 400 Gbps with minimum-sized packets (64 bytes), you must process nearly 
+                    600 million packets per second. That's 1.7 nanoseconds per packet—about 5 
+                    CPU clock cycles on a 3 GHz processor. No CPU can do meaningful work in 5 cycles.
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-label">Time Budget</div>
+            <h2>The Latency Breakdown</h2>
+            <p>
+                Every operation adds latency. At wire speed, even nanoseconds matter. 
+                Here's what happens in the time budget of a single packet.
+            </p>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">What Happens in Microseconds</div>
+                <div class="timeline">
+                    <div class="timeline-item" data-tooltip="time-wire">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-time">&lt; 1 μs</div>
+                        <div class="timeline-title">Wire-to-MAC</div>
+                        <div class="timeline-desc">Physical signal reception, clock recovery, and MAC processing</div>
+                    </div>
+                    <div class="timeline-item" data-tooltip="time-parse">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-time">1-2 μs</div>
+                        <div class="timeline-title">Packet Parsing</div>
+                        <div class="timeline-desc">Header extraction, flow identification, checksum verification</div>
+                    </div>
+                    <div class="timeline-item" data-tooltip="time-policy">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-time">2-5 μs</div>
+                        <div class="timeline-title">Policy Lookup</div>
+                        <div class="timeline-desc">Flow table match, QoS classification, security rules</div>
+                    </div>
+                    <div class="timeline-item" data-tooltip="time-action">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-time">5-10 μs</div>
+                        <div class="timeline-title">Action & Forward</div>
+                        <div class="timeline-desc">Packet modification, scheduling, transmission</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-label">Processing Pipeline</div>
+            <h2>What Must Happen Per Packet</h2>
+            <p>
+                For proper tenant isolation, every packet must go through multiple processing 
+                stages. Each stage must complete in sub-microsecond time at wire speed.
+            </p>
+            
+            <div class="diagram-container">
+                <div class="diagram-title">Packet Processing Pipeline</div>
+                <div class="pipeline">
+                    <div class="pipeline-stage stage-1" data-tooltip="pipe-receive">
+                        <div class="stage-icon">📥</div>
+                        <div class="stage-name">Receive</div>
+                        <div class="stage-time">&lt;100 ns</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage stage-2" data-tooltip="pipe-classify">
+                        <div class="stage-icon">🔍</div>
+                        <div class="stage-name">Classify</div>
+                        <div class="stage-time">~200 ns</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage stage-3" data-tooltip="pipe-policy">
+                        <div class="stage-icon">📋</div>
+                        <div class="stage-name">Policy</div>
+                        <div class="stage-time">~500 ns</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage stage-4" data-tooltip="pipe-queue">
+                        <div class="stage-icon">📊</div>
+                        <div class="stage-name">Queue</div>
+                        <div class="stage-time">~200 ns</div>
+                    </div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-stage stage-5" data-tooltip="pipe-transmit">
+                        <div class="stage-icon">📤</div>
+                        <div class="stage-name">Transmit</div>
+                        <div class="stage-time">&lt;100 ns</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="callout">
+                <div class="callout-title">💡 The Hardware Solution</div>
+                <div class="callout-text">
+                    CPUs can't process packets this fast—they're designed for complex, variable 
+                    workloads. DPUs use dedicated hardware pipelines that process packets in parallel, 
+                    achieving wire-speed by design rather than brute force.
+                </div>
+            </div>
+        </section>
+
+        <nav class="nav-footer">
+            <a href="chapter-02-tenant-isolation.html" class="nav-link prev">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                <div>
+                    <div class="nav-link-label">Previous</div>
+                    <div class="nav-link-title">Tenant Isolation</div>
+                </div>
+            </a>
+            <a href="chapter-04-dpu-fundamentals.html" class="nav-link next">
+                <div>
+                    <div class="nav-link-label">Next Chapter</div>
+                    <div class="nav-link-title">Understanding DPUs</div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </nav>
+    </main>
+
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-text"></div>
+        <div class="tooltip-arrow"></div>
+    </div>
+
+    <script>
+        const tooltips = {
+            'calc-bandwidth': {
+                title: '400 Gbps Bandwidth',
+                text: 'Current high-end network interface speed. A single AI GPU cluster can have hundreds of 400G links connecting nodes.',
+                color: '#ff9f0a'
+            },
+            'calc-packets': {
+                title: '595 Million Packets/Second',
+                text: 'At 400 Gbps with 64-byte minimum packets, that is nearly 600 million packets every second that need individual processing.',
+                color: '#64d2ff'
+            },
+            'calc-time': {
+                title: '1.7 Nanoseconds Per Packet',
+                text: 'You have less than 2 billionths of a second to receive, classify, apply policies, and forward each packet. Light travels only 50cm in this time.',
+                color: '#30d158'
+            },
+            'calc-cycles': {
+                title: '~5 CPU Cycles Per Packet',
+                text: 'At 3 GHz, a CPU gets about 5 clock cycles per packet. A single memory access takes 100+ cycles. CPUs simply cannot keep up.',
+                color: '#bf5af2'
+            },
+            'time-wire': {
+                title: 'Physical Layer Processing',
+                text: 'Signal reception from the fiber/copper, clock and data recovery, forward error correction. All done in specialized SerDes hardware.',
+                color: '#30d158'
+            },
+            'time-parse': {
+                title: 'Packet Parsing',
+                text: 'Extract Ethernet, IP, TCP/UDP headers. Identify flows by 5-tuple (src/dst IP, src/dst port, protocol). Verify checksums.',
+                color: '#0071e3'
+            },
+            'time-policy': {
+                title: 'Policy Lookup',
+                text: 'Match against flow tables with potentially millions of entries. Apply QoS classification. Check security ACLs. This is the bottleneck.',
+                color: '#ff9f0a'
+            },
+            'time-action': {
+                title: 'Action & Forwarding',
+                text: 'Modify headers if needed (NAT, encapsulation). Schedule for transmission based on priority. Actually send the packet.',
+                color: '#ff453a'
+            },
+            'pipe-receive': {
+                title: 'Packet Reception',
+                text: 'DMA from NIC to memory, descriptor processing, initial buffer allocation. Hardware handles this completely.',
+                color: '#0071e3'
+            },
+            'pipe-classify': {
+                title: 'Flow Classification',
+                text: 'Parse headers and match to tenant flows. Uses hardware hash tables and TCAM for wire-speed lookups.',
+                color: '#bf5af2'
+            },
+            'pipe-policy': {
+                title: 'Policy Enforcement',
+                text: 'Apply QoS rules, rate limiting, ACLs. This is where software sometimes gets involved for complex decisions.',
+                color: '#ff9f0a'
+            },
+            'pipe-queue': {
+                title: 'Queue Management',
+                text: 'Place packet in appropriate priority queue. Handle congestion with ECN marking or drops. Ensure fairness.',
+                color: '#30d158'
+            },
+            'pipe-transmit': {
+                title: 'Transmission',
+                text: 'Dequeue based on scheduler, DMA to NIC, actual wire transmission. Again, all hardware.',
+                color: '#ff453a'
+            }
+        };
+
+        const tooltipEl = document.getElementById('tooltip');
+        const tooltipTitle = tooltipEl.querySelector('.tooltip-title');
+        const tooltipText = tooltipEl.querySelector('.tooltip-text');
+
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', (e) => {
+                const key = el.dataset.tooltip;
+                const data = tooltips[key];
+                if (!data) return;
+
+                tooltipTitle.textContent = data.title;
+                tooltipText.textContent = data.text;
+                tooltipEl.style.setProperty('--tooltip-color', data.color);
+
+                const rect = el.getBoundingClientRect();
+                let left = rect.left + rect.width / 2;
+                let top = rect.top - 10;
+                left = Math.max(160, Math.min(left, window.innerWidth - 160));
+                top = Math.max(100, top);
+
+                tooltipEl.style.left = left + 'px';
+                tooltipEl.style.top = top + 'px';
+                tooltipEl.style.transform = 'translate(-50%, -100%)';
+                tooltipEl.classList.add('visible');
+            });
+
+            el.addEventListener('mouseleave', () => {
+                tooltipEl.classList.remove('visible');
+            });
+        });
+    </script>
+</body>
+</html>
