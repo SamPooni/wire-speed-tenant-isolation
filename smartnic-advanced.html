@@ -1,0 +1,2305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartNIC Security — Advanced Concepts</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-tertiary: #111111;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --bg-card-hover: rgba(255, 255, 255, 0.06);
+            --bg-code: rgba(255, 255, 255, 0.05);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-medium: rgba(255, 255, 255, 0.12);
+            --text-primary: #f5f5f7;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-tertiary: rgba(255, 255, 255, 0.5);
+            --accent-blue: #2997ff;
+            --accent-purple: #bf5af2;
+            --accent-red: #ff453a;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-cyan: #64d2ff;
+            --accent-pink: #ff375f;
+            --accent-yellow: #ffd60a;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-logo {
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-logo-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-badge {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 3px 8px;
+            background: var(--accent-purple);
+            color: white;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 28px;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 120px 24px 80px;
+            overflow: hidden;
+        }
+
+        .hero-bg {
+            position: absolute;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse 60% 40% at 50% 0%, rgba(191, 90, 242, 0.15), transparent),
+                radial-gradient(ellipse 40% 30% at 80% 20%, rgba(255, 55, 95, 0.1), transparent),
+                radial-gradient(ellipse 40% 30% at 20% 80%, rgba(41, 151, 255, 0.1), transparent);
+        }
+
+        .hero-grid {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 64px 64px;
+            mask-image: radial-gradient(ellipse 80% 50% at 50% 50%, black, transparent);
+        }
+
+        .hero-content {
+            position: relative;
+            max-width: 1000px;
+            text-align: center;
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .hero-eyebrow-line {
+            width: 40px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-purple));
+        }
+
+        .hero-eyebrow-text {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--accent-purple);
+        }
+
+        .hero-title {
+            font-size: clamp(44px, 8vw, 80px);
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            line-height: 1.05;
+            margin-bottom: 24px;
+        }
+
+        .hero-title-gradient {
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(17px, 2.5vw, 21px);
+            color: var(--text-tertiary);
+            max-width: 700px;
+            margin: 0 auto 48px;
+            line-height: 1.5;
+        }
+
+        .hero-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero-card {
+            padding: 20px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            text-align: left;
+            transition: all 0.3s;
+        }
+
+        .hero-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-2px);
+        }
+
+        .hero-card-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .hero-card-icon.purple { background: rgba(191, 90, 242, 0.15); color: var(--accent-purple); }
+        .hero-card-icon.blue { background: rgba(41, 151, 255, 0.15); color: var(--accent-blue); }
+        .hero-card-icon.red { background: rgba(255, 69, 58, 0.15); color: var(--accent-red); }
+        .hero-card-icon.green { background: rgba(48, 209, 88, 0.15); color: var(--accent-green); }
+
+        .hero-card-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .hero-card-desc {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+
+        /* Section Styles */
+        section {
+            padding: 120px 24px;
+            position: relative;
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            margin-bottom: 64px;
+        }
+
+        .section-header.center {
+            text-align: center;
+        }
+
+        .section-number {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-purple);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-number::after {
+            content: '';
+            flex: 1;
+            max-width: 60px;
+            height: 1px;
+            background: linear-gradient(90deg, var(--accent-purple), transparent);
+        }
+
+        .section-title {
+            font-size: clamp(32px, 5vw, 48px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+        }
+
+        .section-subtitle {
+            font-size: 17px;
+            color: var(--text-tertiary);
+            max-width: 600px;
+        }
+
+        .section-header.center .section-subtitle {
+            margin: 0 auto;
+        }
+
+        /* Gradient Backgrounds */
+        .bg-gradient-purple {
+            background: linear-gradient(180deg, var(--bg-primary) 0%, rgba(191, 90, 242, 0.03) 50%, var(--bg-primary) 100%);
+        }
+
+        .bg-gradient-blue {
+            background: linear-gradient(180deg, var(--bg-primary) 0%, rgba(41, 151, 255, 0.03) 50%, var(--bg-primary) 100%);
+        }
+
+        .bg-gradient-red {
+            background: linear-gradient(180deg, var(--bg-primary) 0%, rgba(255, 69, 58, 0.03) 50%, var(--bg-primary) 100%);
+        }
+
+        /* Memory Architecture Section */
+        .memory-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .memory-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .memory-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            transition: all 0.3s;
+        }
+
+        .memory-card:hover {
+            border-color: var(--border-medium);
+        }
+
+        .memory-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .memory-card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .memory-card-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .memory-card-desc {
+            font-size: 15px;
+            color: var(--text-tertiary);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .memory-card-list {
+            list-style: none;
+        }
+
+        .memory-card-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-top: 1px solid var(--border-subtle);
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .memory-card-list li svg {
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        /* Code Block */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 20px 24px;
+            font-family: 'JetBrains Mono', 'SF Mono', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            overflow-x: auto;
+            margin: 24px 0;
+        }
+
+        .code-block pre {
+            margin: 0;
+            white-space: pre;
+        }
+
+        .code-block code {
+            color: var(--text-secondary);
+            font-family: inherit;
+        }
+
+        .code-comment { color: var(--text-tertiary); }
+        .code-keyword { color: var(--accent-purple); }
+        .code-string { color: var(--accent-green); }
+        .code-function { color: var(--accent-blue); }
+        .code-number { color: var(--accent-orange); }
+        .code-type { color: var(--accent-cyan); }
+
+        /* Attack Vectors */
+        .attack-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .attack-card {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 24px;
+            align-items: start;
+            padding: 28px 32px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+
+        .attack-card:hover {
+            border-color: var(--accent-red);
+            background: rgba(255, 69, 58, 0.02);
+        }
+
+        @media (max-width: 768px) {
+            .attack-card {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .attack-icon {
+            width: 56px;
+            height: 56px;
+            background: rgba(255, 69, 58, 0.1);
+            border: 1px solid rgba(255, 69, 58, 0.2);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-red);
+        }
+
+        .attack-content h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .attack-content p {
+            font-size: 15px;
+            color: var(--text-tertiary);
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .attack-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .attack-tag {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 5px 10px;
+            background: var(--bg-code);
+            border-radius: 6px;
+            color: var(--text-tertiary);
+        }
+
+        .attack-severity {
+            text-align: right;
+        }
+
+        .severity-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+            margin-bottom: 6px;
+        }
+
+        .severity-value {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 8px;
+        }
+
+        .severity-value.critical {
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--accent-red);
+        }
+
+        .severity-value.high {
+            background: rgba(255, 159, 10, 0.15);
+            color: var(--accent-orange);
+        }
+
+        /* Diagram Section */
+        .diagram-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 48px;
+            margin-top: 48px;
+        }
+
+        .diagram-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+            margin-bottom: 32px;
+            text-align: center;
+        }
+
+        .diagram-flow {
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            gap: 0;
+            flex-wrap: wrap;
+        }
+
+        .diagram-node {
+            flex: 1;
+            min-width: 180px;
+            max-width: 220px;
+            padding: 24px;
+            background: var(--bg-code);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            text-align: center;
+            position: relative;
+        }
+
+        .diagram-node-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 16px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .diagram-node-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .diagram-node-desc {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            line-height: 1.5;
+        }
+
+        .diagram-arrow {
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            color: var(--text-tertiary);
+        }
+
+        .diagram-arrow svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .diagram-flow {
+                flex-direction: column;
+                align-items: center;
+            }
+            .diagram-node {
+                max-width: 100%;
+                width: 100%;
+            }
+            .diagram-arrow {
+                transform: rotate(90deg);
+                padding: 12px 0;
+            }
+        }
+
+        /* eBPF Section */
+        .ebpf-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 32px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .ebpf-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .ebpf-code {
+            background: #0d1117;
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .ebpf-code-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .ebpf-code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .ebpf-code-dot.red { background: #ff5f57; }
+        .ebpf-code-dot.yellow { background: #febc2e; }
+        .ebpf-code-dot.green { background: #28c840; }
+
+        .ebpf-code-title {
+            margin-left: 12px;
+            font-size: 12px;
+            color: var(--text-tertiary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .ebpf-code-content {
+            padding: 20px;
+            font-family: 'JetBrains Mono', 'SF Mono', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            overflow-x: auto;
+        }
+
+        .ebpf-code-content pre {
+            margin: 0;
+            white-space: pre;
+        }
+
+        .ebpf-code-content code {
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        .ebpf-risks {
+            display: grid;
+            gap: 16px;
+        }
+
+        .ebpf-risk {
+            padding: 20px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            transition: all 0.3s;
+        }
+
+        .ebpf-risk:hover {
+            border-color: var(--accent-orange);
+        }
+
+        .ebpf-risk-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .ebpf-risk-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 159, 10, 0.15);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-orange);
+        }
+
+        .ebpf-risk-title {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .ebpf-risk-desc {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            line-height: 1.5;
+        }
+
+        /* Kernel Bypass */
+        .bypass-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 48px;
+        }
+
+        @media (max-width: 768px) {
+            .bypass-comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .bypass-card {
+            padding: 32px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .bypass-card.traditional {
+            background: linear-gradient(135deg, rgba(48, 209, 88, 0.05) 0%, transparent 100%);
+            border-color: rgba(48, 209, 88, 0.2);
+        }
+
+        .bypass-card.bypass {
+            background: linear-gradient(135deg, rgba(255, 69, 58, 0.05) 0%, transparent 100%);
+            border-color: rgba(255, 69, 58, 0.2);
+        }
+
+        .bypass-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .bypass-card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bypass-card.traditional .bypass-card-icon {
+            background: rgba(48, 209, 88, 0.15);
+            color: var(--accent-green);
+        }
+
+        .bypass-card.bypass .bypass-card-icon {
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--accent-red);
+        }
+
+        .bypass-card-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .bypass-list {
+            list-style: none;
+        }
+
+        .bypass-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .bypass-list li svg {
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .bypass-card.traditional .bypass-list li svg {
+            color: var(--accent-green);
+        }
+
+        .bypass-card.bypass .bypass-list li svg {
+            color: var(--accent-red);
+        }
+
+        /* Side Channel Section */
+        .sidechannel-visual {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            margin-top: 48px;
+        }
+
+        @media (max-width: 900px) {
+            .sidechannel-visual {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sidechannel-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+        }
+
+        .sidechannel-diagram-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+            margin-bottom: 24px;
+        }
+
+        .timing-bars {
+            display: grid;
+            gap: 12px;
+        }
+
+        .timing-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .timing-bar-label {
+            width: 100px;
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-align: right;
+        }
+
+        .timing-bar-track {
+            flex: 1;
+            height: 24px;
+            background: var(--bg-code);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .timing-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .timing-bar-fill.cache-hit {
+            width: 20%;
+            background: linear-gradient(90deg, var(--accent-green), #25a244);
+        }
+
+        .timing-bar-fill.cache-miss {
+            width: 85%;
+            background: linear-gradient(90deg, var(--accent-red), #cc362e);
+        }
+
+        .timing-bar-fill.mmio {
+            width: 65%;
+            background: linear-gradient(90deg, var(--accent-orange), #cc7f08);
+        }
+
+        .sidechannel-attacks {
+            display: grid;
+            gap: 16px;
+        }
+
+        .sidechannel-attack {
+            padding: 20px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+        }
+
+        .sidechannel-attack-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidechannel-attack-name .tag {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--accent-red);
+            border-radius: 4px;
+        }
+
+        .sidechannel-attack-desc {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            line-height: 1.5;
+        }
+
+        /* Multi-Tenancy */
+        .tenant-architecture {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 48px;
+            margin-top: 48px;
+        }
+
+        .tenant-layers {
+            display: grid;
+            gap: 16px;
+        }
+
+        .tenant-layer {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 24px;
+            align-items: center;
+            padding: 20px 24px;
+            background: var(--bg-code);
+            border-radius: 12px;
+        }
+
+        .tenant-layer-name {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+        }
+
+        .tenant-layer-content {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .tenant-box {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .tenant-box.tenant-a {
+            background: rgba(41, 151, 255, 0.15);
+            border: 1px solid rgba(41, 151, 255, 0.3);
+            color: var(--accent-blue);
+        }
+
+        .tenant-box.tenant-b {
+            background: rgba(191, 90, 242, 0.15);
+            border: 1px solid rgba(191, 90, 242, 0.3);
+            color: var(--accent-purple);
+        }
+
+        .tenant-box.shared {
+            background: rgba(255, 159, 10, 0.15);
+            border: 1px solid rgba(255, 159, 10, 0.3);
+            color: var(--accent-orange);
+            flex: 1;
+        }
+
+        .tenant-box.nic {
+            background: rgba(255, 69, 58, 0.1);
+            border: 1px dashed rgba(255, 69, 58, 0.3);
+            color: var(--accent-red);
+            flex: 1;
+        }
+
+        .tenant-risks {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 32px;
+        }
+
+        .tenant-risk {
+            padding: 24px;
+            background: rgba(255, 69, 58, 0.03);
+            border: 1px solid rgba(255, 69, 58, 0.15);
+            border-radius: 16px;
+        }
+
+        .tenant-risk-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--accent-red);
+        }
+
+        .tenant-risk-desc {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            line-height: 1.5;
+        }
+
+        /* Firmware Section */
+        .firmware-flow {
+            margin-top: 48px;
+        }
+
+        .firmware-stage {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 32px;
+            padding: 32px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .firmware-stage:last-child {
+            border-bottom: none;
+        }
+
+        .firmware-stage-number {
+            width: 64px;
+            height: 64px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-purple);
+        }
+
+        .firmware-stage-content h4 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .firmware-stage-content > p {
+            font-size: 15px;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        .firmware-risks {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .firmware-risk-tag {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 6px 12px;
+            background: rgba(255, 69, 58, 0.1);
+            border: 1px solid rgba(255, 69, 58, 0.2);
+            border-radius: 8px;
+            color: var(--accent-red);
+        }
+
+        /* Detection Section */
+        .detection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .detection-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            transition: all 0.3s;
+        }
+
+        .detection-card:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        .detection-card-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .detection-card-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(100, 210, 255, 0.12);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-cyan);
+        }
+
+        .detection-card-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .detection-card-desc {
+            font-size: 15px;
+            color: var(--text-tertiary);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .detection-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .detection-metric {
+            padding: 12px 16px;
+            background: var(--bg-code);
+            border-radius: 10px;
+        }
+
+        .detection-metric-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+
+        .detection-metric-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Tradeoffs Matrix */
+        .tradeoffs-matrix {
+            margin-top: 48px;
+            overflow-x: auto;
+        }
+
+        .matrix-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+        }
+
+        .matrix-table th,
+        .matrix-table td {
+            padding: 16px 20px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .matrix-table th {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-tertiary);
+            background: var(--bg-card);
+        }
+
+        .matrix-table th:first-child {
+            border-radius: 12px 0 0 0;
+        }
+
+        .matrix-table th:last-child {
+            border-radius: 0 12px 0 0;
+        }
+
+        .matrix-table td {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .matrix-table tr:hover td {
+            background: var(--bg-card);
+        }
+
+        .matrix-config {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .matrix-bar {
+            height: 8px;
+            background: var(--bg-code);
+            border-radius: 4px;
+            overflow: hidden;
+            min-width: 100px;
+        }
+
+        .matrix-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+
+        .matrix-bar-fill.low {
+            background: var(--accent-green);
+        }
+
+        .matrix-bar-fill.medium {
+            background: var(--accent-orange);
+        }
+
+        .matrix-bar-fill.high {
+            background: var(--accent-red);
+        }
+
+        /* Best Practices */
+        .practices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .practice-card {
+            background: linear-gradient(135deg, rgba(48, 209, 88, 0.03) 0%, transparent 100%);
+            border: 1px solid rgba(48, 209, 88, 0.15);
+            border-radius: 20px;
+            padding: 28px;
+            transition: all 0.3s;
+        }
+
+        .practice-card:hover {
+            border-color: rgba(48, 209, 88, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .practice-card-number {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-green);
+            margin-bottom: 12px;
+        }
+
+        .practice-card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .practice-card-desc {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            line-height: 1.6;
+        }
+
+        /* Footer */
+        footer {
+            padding: 64px 24px;
+            border-top: 1px solid var(--border-subtle);
+            background: var(--bg-secondary);
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer-top {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 48px;
+            margin-bottom: 48px;
+            padding-bottom: 48px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        @media (max-width: 768px) {
+            .footer-top {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .footer-brand h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .footer-brand p {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            max-width: 400px;
+            line-height: 1.6;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 48px;
+        }
+
+        .footer-links-column h4 {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+        }
+
+        .footer-links-column ul {
+            list-style: none;
+        }
+
+        .footer-links-column li {
+            margin-bottom: 10px;
+        }
+
+        .footer-links-column a {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links-column a:hover {
+            color: var(--text-primary);
+        }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .footer-copyright {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+
+        .footer-disclaimer {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            max-width: 500px;
+            text-align: right;
+        }
+
+        @media (max-width: 640px) {
+            .nav-links { display: none; }
+            section { padding: 80px 20px; }
+            .hero-cards { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-content">
+            <div class="nav-logo">
+                <div class="nav-logo-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                SmartNIC Security
+                <span class="nav-badge">Advanced</span>
+            </div>
+            <div class="nav-links">
+                <a href="#memory">Memory</a>
+                <a href="#attacks">Attack Vectors</a>
+                <a href="#ebpf">eBPF/XDP</a>
+                <a href="#sidechannel">Side Channels</a>
+                <a href="#detection">Detection</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-grid"></div>
+        <div class="hero-content">
+            <div class="hero-eyebrow">
+                <div class="hero-eyebrow-line"></div>
+                <span class="hero-eyebrow-text">Advanced Concepts</span>
+                <div class="hero-eyebrow-line" style="transform: scaleX(-1);"></div>
+            </div>
+            <h1 class="hero-title">
+                <span class="hero-title-gradient">Deep Dive into<br>SmartNIC Security</span>
+            </h1>
+            <p class="hero-subtitle">
+                Beyond the basics. Explore DMA attacks, eBPF risks, side-channel vulnerabilities, multi-tenancy isolation failures, and advanced detection strategies.
+            </p>
+
+            <div class="hero-cards">
+                <div class="hero-card">
+                    <div class="hero-card-icon purple">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/>
+                        </svg>
+                    </div>
+                    <div class="hero-card-title">Memory Architecture</div>
+                    <div class="hero-card-desc">IOMMU, DMA, PCIe security</div>
+                </div>
+                <div class="hero-card">
+                    <div class="hero-card-icon red">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        </svg>
+                    </div>
+                    <div class="hero-card-title">Attack Vectors</div>
+                    <div class="hero-card-desc">Advanced exploitation techniques</div>
+                </div>
+                <div class="hero-card">
+                    <div class="hero-card-icon blue">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+                        </svg>
+                    </div>
+                    <div class="hero-card-title">eBPF/XDP</div>
+                    <div class="hero-card-desc">Programmable dataplane risks</div>
+                </div>
+                <div class="hero-card">
+                    <div class="hero-card-icon green">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </div>
+                    <div class="hero-card-title">Detection</div>
+                    <div class="hero-card-desc">Real-time observability</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Memory Architecture -->
+    <section id="memory" class="bg-gradient-purple">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-number">01 — Memory Architecture</div>
+                <h2 class="section-title">DMA, IOMMU & PCIe Security</h2>
+                <p class="section-subtitle">Understanding the hardware-level attack surface in offload architectures</p>
+            </div>
+
+            <div class="memory-grid">
+                <div class="memory-card">
+                    <div class="memory-card-header">
+                        <div class="memory-card-icon" style="background: rgba(255, 69, 58, 0.15); color: var(--accent-red);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                        </div>
+                        <span class="severity-value critical">Critical</span>
+                    </div>
+                    <h3 class="memory-card-title">DMA Attack Surface</h3>
+                    <p class="memory-card-desc">Direct Memory Access allows peripherals to read/write host memory without CPU involvement — a double-edged sword.</p>
+                    <ul class="memory-card-list">
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <span><strong>Pre-boot attacks:</strong> Malicious devices can read encryption keys before OS security loads</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <span><strong>Memory scraping:</strong> Extract credentials, keys, and sensitive data from RAM</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <span><strong>Code injection:</strong> Write malicious code directly into kernel memory</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="memory-card">
+                    <div class="memory-card-header">
+                        <div class="memory-card-icon" style="background: rgba(48, 209, 88, 0.15); color: var(--accent-green);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                        </div>
+                        <span class="severity-value" style="background: rgba(48, 209, 88, 0.15); color: var(--accent-green);">Defense</span>
+                    </div>
+                    <h3 class="memory-card-title">IOMMU Protection</h3>
+                    <p class="memory-card-desc">Input-Output Memory Management Unit provides hardware-enforced isolation between devices and memory regions.</p>
+                    <ul class="memory-card-list">
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span><strong>Address translation:</strong> Devices see virtual addresses, not physical</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span><strong>Domain isolation:</strong> Each device gets isolated memory regions</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                            <span><strong>Bypass risk:</strong> Misconfigured IOMMU or ACS vulnerabilities can defeat protection</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="memory-card" style="grid-column: span 2;">
+                    <h3 class="memory-card-title">PCIe Security Considerations</h3>
+                    <p class="memory-card-desc">SmartNICs communicate over PCIe — understanding this interface is critical for securing offload paths.</p>
+                    
+                    <div class="code-block"><pre><code><span class="code-comment">// PCIe BAR (Base Address Register) mapping vulnerability</span>
+<span class="code-comment">// SmartNIC firmware can request arbitrary BAR sizes</span>
+
+<span class="code-keyword">struct</span> <span class="code-type">pcie_bar_config</span> {
+    <span class="code-type">uint64_t</span> base_addr;      <span class="code-comment">// Physical address in host memory</span>
+    <span class="code-type">uint64_t</span> size;           <span class="code-comment">// Size of mapped region</span>
+    <span class="code-type">uint32_t</span> flags;          <span class="code-comment">// R/W/X permissions</span>
+};
+
+<span class="code-comment">// Risk: Malicious firmware could request overlapping BARs</span>
+<span class="code-comment">// or map sensitive kernel regions</span>
+<span class="code-keyword">if</span> (!<span class="code-function">validate_bar_request</span>(bar_config)) {
+    <span class="code-comment">// CRITICAL: Reject suspicious mappings</span>
+    <span class="code-keyword">return</span> -EPERM;
+}</code></pre></div>
+                </div>
+            </div>
+
+            <!-- DMA Attack Flow Diagram -->
+            <div class="diagram-container">
+                <div class="diagram-title">DMA Attack Flow Without IOMMU Protection</div>
+                <div class="diagram-flow">
+                    <div class="diagram-node">
+                        <div class="diagram-node-icon" style="background: rgba(255, 69, 58, 0.15); color: var(--accent-red);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/>
+                            </svg>
+                        </div>
+                        <div class="diagram-node-title">Malicious SmartNIC</div>
+                        <div class="diagram-node-desc">Compromised firmware initiates DMA request</div>
+                    </div>
+                    <div class="diagram-arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                    <div class="diagram-node">
+                        <div class="diagram-node-icon" style="background: rgba(255, 159, 10, 0.15); color: var(--accent-orange);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                        </div>
+                        <div class="diagram-node-title">PCIe Bus</div>
+                        <div class="diagram-node-desc">DMA request travels over bus without validation</div>
+                    </div>
+                    <div class="diagram-arrow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                    <div class="diagram-node">
+                        <div class="diagram-node-icon" style="background: rgba(255, 69, 58, 0.15); color: var(--accent-red);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                            </svg>
+                        </div>
+                        <div class="diagram-node-title">Host Memory</div>
+                        <div class="diagram-node-desc">Direct read/write to kernel space, credentials exposed</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Advanced Attack Vectors -->
+    <section id="attacks">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-number">02 — Attack Vectors</div>
+                <h2 class="section-title">Advanced Exploitation Techniques</h2>
+                <p class="section-subtitle">Sophisticated attacks targeting SmartNIC and IPU infrastructure</p>
+            </div>
+
+            <div class="attack-grid">
+                <div class="attack-card">
+                    <div class="attack-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                    </div>
+                    <div class="attack-content">
+                        <h3>Firmware Supply Chain Attack</h3>
+                        <p>Compromising SmartNIC firmware during manufacturing or update distribution. Malicious firmware persists across reboots and can survive OS reinstallation.</p>
+                        <div class="attack-tags">
+                            <span class="attack-tag">Persistence</span>
+                            <span class="attack-tag">Supply Chain</span>
+                            <span class="attack-tag">Pre-Boot</span>
+                        </div>
+                    </div>
+                    <div class="attack-severity">
+                        <div class="severity-label">Severity</div>
+                        <div class="severity-value critical">Critical</div>
+                    </div>
+                </div>
+
+                <div class="attack-card">
+                    <div class="attack-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+                        </svg>
+                    </div>
+                    <div class="attack-content">
+                        <h3>Shared Buffer Overflow</h3>
+                        <p>Exploiting integer overflow or type confusion in shared memory regions between host and SmartNIC. Enables arbitrary read/write in both domains.</p>
+                        <div class="attack-tags">
+                            <span class="attack-tag">Memory Corruption</span>
+                            <span class="attack-tag">Type Confusion</span>
+                            <span class="attack-tag">Cross-Domain</span>
+                        </div>
+                    </div>
+                    <div class="attack-severity">
+                        <div class="severity-label">Severity</div>
+                        <div class="severity-value critical">Critical</div>
+                    </div>
+                </div>
+
+                <div class="attack-card">
+                    <div class="attack-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                    </div>
+                    <div class="attack-content">
+                        <h3>Timing-Based Covert Channel</h3>
+                        <p>Using SmartNIC processing latency variations to establish covert communication channels or leak sensitive data across security boundaries.</p>
+                        <div class="attack-tags">
+                            <span class="attack-tag">Side Channel</span>
+                            <span class="attack-tag">Covert Channel</span>
+                            <span class="attack-tag">Exfiltration</span>
+                        </div>
+                    </div>
+                    <div class="attack-severity">
+                        <div class="severity-label">Severity</div>
+                        <div class="severity-value high">High</div>
+                    </div>
+                </div>
+
+                <div class="attack-card">
+                    <div class="attack-icon">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        </svg>
+                    </div>
+                    <div class="attack-content">
+                        <h3>Protocol Parser Exploitation</h3>
+                        <p>Fuzzing Layer 7 protocol parsers (HTTP, gRPC, TLS) running on SmartNIC to trigger memory corruption, denial of service, or parser state confusion.</p>
+                        <div class="attack-tags">
+                            <span class="attack-tag">Fuzzing</span>
+                            <span class="attack-tag">Parser Bug</span>
+                            <span class="attack-tag">Layer 7</span>
+                        </div>
+                    </div>
+                    <div class="attack-severity">
+                        <div class="severity-label">Severity</div>
+                        <div class="severity-value high">High</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- eBPF/XDP Section -->
+    <section id="ebpf" class="bg-gradient-blue">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-number">03 — eBPF & XDP</div>
+                <h2 class="section-title">Programmable Dataplane Risks</h2>
+                <p class="section-subtitle">The power and peril of running custom code in the kernel fast path</p>
+            </div>
+
+            <div class="ebpf-grid">
+                <div class="ebpf-code">
+                    <div class="ebpf-code-header">
+                        <span class="ebpf-code-dot red"></span>
+                        <span class="ebpf-code-dot yellow"></span>
+                        <span class="ebpf-code-dot green"></span>
+                        <span class="ebpf-code-title">xdp_filter.c</span>
+                    </div>
+                    <div class="ebpf-code-content"><pre><code><span class="code-comment">// XDP program running at NIC driver level</span>
+<span class="code-comment">// Executes BEFORE the kernel network stack</span>
+
+<span class="code-keyword">SEC</span>(<span class="code-string">"xdp"</span>)
+<span class="code-type">int</span> <span class="code-function">xdp_filter</span>(<span class="code-keyword">struct</span> <span class="code-type">xdp_md</span> *ctx) {
+    <span class="code-type">void</span> *data = (<span class="code-type">void</span> *)(<span class="code-type">long</span>)ctx-&gt;data;
+    <span class="code-type">void</span> *data_end = (<span class="code-type">void</span> *)(<span class="code-type">long</span>)ctx-&gt;data_end;
+
+    <span class="code-comment">// VULNERABILITY: Missing bounds check</span>
+    <span class="code-keyword">struct</span> <span class="code-type">ethhdr</span> *eth = data;
+    
+    <span class="code-comment">// Risk: data_end check missing</span>
+    <span class="code-comment">// Verifier should catch this, but...</span>
+    
+    <span class="code-keyword">if</span> (eth-&gt;h_proto == <span class="code-function">htons</span>(ETH_P_IP)) {
+        <span class="code-comment">// Process packet at wire speed</span>
+        <span class="code-comment">// Any bug here = kernel crash</span>
+        <span class="code-keyword">return</span> XDP_PASS;
+    }
+    
+    <span class="code-keyword">return</span> XDP_DROP;
+}</code></pre></div>
+                </div>
+
+                <div class="ebpf-risks">
+                    <div class="ebpf-risk">
+                        <div class="ebpf-risk-header">
+                            <div class="ebpf-risk-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                </svg>
+                            </div>
+                            <span class="ebpf-risk-title">Verifier Bypass</span>
+                        </div>
+                        <p class="ebpf-risk-desc">Historical CVEs show eBPF verifier can be tricked into allowing unsafe memory access through complex control flow.</p>
+                    </div>
+                    <div class="ebpf-risk">
+                        <div class="ebpf-risk-header">
+                            <div class="ebpf-risk-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                </svg>
+                            </div>
+                            <span class="ebpf-risk-title">JIT Spraying</span>
+                        </div>
+                        <p class="ebpf-risk-desc">eBPF JIT compilation can create gadgets for ROP attacks if attacker controls program structure.</p>
+                    </div>
+                    <div class="ebpf-risk">
+                        <div class="ebpf-risk-header">
+                            <div class="ebpf-risk-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                </svg>
+                            </div>
+                            <span class="ebpf-risk-title">Map Confusion</span>
+                        </div>
+                        <p class="ebpf-risk-desc">Shared eBPF maps between programs can lead to type confusion and use-after-free vulnerabilities.</p>
+                    </div>
+                    <div class="ebpf-risk">
+                        <div class="ebpf-risk-header">
+                            <div class="ebpf-risk-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                </svg>
+                            </div>
+                            <span class="ebpf-risk-title">Spectre Gadgets</span>
+                        </div>
+                        <p class="ebpf-risk-desc">eBPF programs can be crafted to create speculative execution gadgets for side-channel attacks.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Kernel Bypass -->
+    <section id="bypass">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-number">04 — Kernel Bypass</div>
+                <h2 class="section-title">DPDK & SPDK Security Implications</h2>
+                <p class="section-subtitle">When you bypass the kernel, you bypass its protections too</p>
+            </div>
+
+            <div class="bypass-comparison">
+                <div class="bypass-card traditional">
+                    <div class="bypass-card-header">
+                        <div class="bypass-card-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                        </div>
+                        <span class="bypass-card-title">Traditional Kernel Path</span>
+                    </div>
+                    <ul class="bypass-list">
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span>Kernel validates all network packets</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span>iptables/nftables firewall rules apply</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span>SELinux/AppArmor policies enforced</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span>Audit logging captures network events</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span>Memory protection via kernel ASLR</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bypass-card bypass">
+                    <div class="bypass-card-header">
+                        <div class="bypass-card-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                        </div>
+                        <span class="bypass-card-title">DPDK/SPDK Kernel Bypass</span>
+                    </div>
+                    <ul class="bypass-list">
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <span>Raw packets delivered directly to userspace</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <span>No iptables — must implement your own firewall</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <span>SELinux cannot see bypass traffic</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <span>No audit trail for bypassed packets</span>
+                        </li>
+                        <li>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            <span>Hugepages with fixed addresses reduce ASLR</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Side Channel Attacks -->
+    <section id="sidechannel" class="bg-gradient-red">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-number">05 — Side Channels</div>
+                <h2 class="section-title">Timing & Cache Attacks on SmartNICs</h2>
+                <p class="section-subtitle">Extracting secrets through observable timing variations</p>
+            </div>
+
+            <div class="sidechannel-visual">
+                <div class="sidechannel-diagram">
+                    <div class="sidechannel-diagram-title">Timing Differential Analysis</div>
+                    <div class="timing-bars">
+                        <div class="timing-bar">
+                            <div class="timing-bar-label">Cache Hit</div>
+                            <div class="timing-bar-track">
+                                <div class="timing-bar-fill cache-hit">~10ns</div>
+                            </div>
+                        </div>
+                        <div class="timing-bar">
+                            <div class="timing-bar-label">Cache Miss</div>
+                            <div class="timing-bar-track">
+                                <div class="timing-bar-fill cache-miss">~100ns</div>
+                            </div>
+                        </div>
+                        <div class="timing-bar">
+                            <div class="timing-bar-label">MMIO Access</div>
+                            <div class="timing-bar-track">
+                                <div class="timing-bar-fill mmio">~200ns</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="margin-top: 20px; font-size: 13px; color: var(--text-tertiary); line-height: 1.6;">
+                        These timing differences are measurable from userspace. By observing packet processing times, attackers can infer which code paths were taken and what data was accessed.
+                    </p>
+                </div>
+
+                <div class="sidechannel-attacks">
+                    <div class="sidechannel-attack">
+                        <div class="sidechannel-attack-name">
+                            Prime+Probe
+                            <span class="tag">Cache</span>
+                        </div>
+                        <p class="sidechannel-attack-desc">Fill cache with known data, let victim execute, measure which lines were evicted to infer victim's memory access patterns.</p>
+                    </div>
+                    <div class="sidechannel-attack">
+                        <div class="sidechannel-attack-name">
+                            Flush+Reload
+                            <span class="tag">Shared Memory</span>
+                        </div>
+                        <p class="sidechannel-attack-desc">Exploits shared memory between host and SmartNIC to monitor access patterns to specific memory locations.</p>
+                    </div>
+                    <div class="sidechannel-attack">
+                        <div class="sidechannel-attack-name">
+                            MMIO Timing
+                            <span class="tag">Intel CVE-2022</span>
+                        </div>
+                        <p class="sidechannel-attack-desc">Memory-mapped I/O timing variations leak information about SmartNIC internal state and processing decisions.</p>
+                    </div>
+                    <div class="sidechannel-attack">
+                        <div class="sidechannel-attack-name">
+                            Network Covert Channel
+                            <span class="tag">Exfiltration</span>
+                        </div>
+                        <p class="sidechannel-attack-desc">Encode data in inter-packet timing, packet sizes, or ordering to exfiltrate information past network monitors.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Multi-Tenancy -->
+    <section id="multitenancy">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-number">06 — Multi-Tenancy</div>
+                <h2 class="section-title">Cloud Isolation Challenges</h2>
+                <p class="section-subtitle">When SmartNICs serve multiple tenants, isolation becomes critical</p>
+            </div>
+
+            <div class="tenant-architecture">
+                <div class="tenant-layers">
+                    <div class="tenant-layer">
+                        <div class="tenant-layer-name">Application</div>
+                        <div class="tenant-layer-content">
+                            <div class="tenant-box tenant-a">Tenant A VM</div>
+                            <div class="tenant-box tenant-b">Tenant B VM</div>
+                        </div>
+                    </div>
+                    <div class="tenant-layer">
+                        <div class="tenant-layer-name">Hypervisor</div>
+                        <div class="tenant-layer-content">
+                            <div class="tenant-box shared">Shared Hypervisor Layer</div>
+                        </div>
+                    </div>
+                    <div class="tenant-layer">
+                        <div class="tenant-layer-name">SmartNIC</div>
+                        <div class="tenant-layer-content">
+                            <div class="tenant-box nic">⚠️ Shared SmartNIC — Single Point of Failure</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tenant-risks">
+                    <div class="tenant-risk">
+                        <div class="tenant-risk-title">Cross-Tenant Data Leakage</div>
+                        <p class="tenant-risk-desc">Shared packet buffers or DMA regions could leak data between tenants if isolation is imperfect.</p>
+                    </div>
+                    <div class="tenant-risk">
+                        <div class="tenant-risk-title">Noisy Neighbor DoS</div>
+                        <p class="tenant-risk-desc">One tenant's traffic patterns can affect SmartNIC performance for all other tenants on the same device.</p>
+                    </div>
+                    <div class="tenant-risk">
+                        <div class="tenant-risk-title">Side-Channel Cross-Talk</div>
+                        <p class="tenant-risk-desc">Timing variations in shared SmartNIC processing can leak information about co-tenant workloads.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Firmware Security -->
+    <section class="bg-gradient-purple">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-number">07 — Firmware Security</div>
+                <h2 class="section-title">Supply Chain & Secure Boot</h2>
+                <p class="section-subtitle">Protecting the foundation of SmartNIC security</p>
+            </div>
+
+            <div class="firmware-flow">
+                <div class="firmware-stage">
+                    <div class="firmware-stage-number">1</div>
+                    <div class="firmware-stage-content">
+                        <h4>Manufacturing</h4>
+                        <p>Firmware is initially programmed at the factory. This is the first point where supply chain attacks can occur.</p>
+                        <div class="firmware-risks">
+                            <span class="firmware-risk-tag">Counterfeit Components</span>
+                            <span class="firmware-risk-tag">Backdoor Insertion</span>
+                            <span class="firmware-risk-tag">Key Compromise</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="firmware-stage">
+                    <div class="firmware-stage-number">2</div>
+                    <div class="firmware-stage-content">
+                        <h4>Distribution</h4>
+                        <p>Firmware updates are downloaded from vendor servers. MITM attacks or compromised update servers can deliver malicious firmware.</p>
+                        <div class="firmware-risks">
+                            <span class="firmware-risk-tag">Update Server Compromise</span>
+                            <span class="firmware-risk-tag">MITM on Update</span>
+                            <span class="firmware-risk-tag">Signature Bypass</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="firmware-stage">
+                    <div class="firmware-stage-number">3</div>
+                    <div class="firmware-stage-content">
+                        <h4>Verification</h4>
+                        <p>Secure boot should verify firmware integrity before execution. Weak or missing verification enables persistence.</p>
+                        <div class="firmware-risks">
+                            <span class="firmware-risk-tag">Weak Cryptography</span>
+                            <span class="firmware-risk-tag">Rollback Attacks</span>
+                            <span class="firmware-risk-tag">TOCTOU Bugs</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="firmware-stage">
+                    <div class="firmware-stage-number">4</div>
+                    <div class="firmware-stage-content">
+                        <h4>Runtime</h4>
+                        <p>Even after secure boot, runtime attacks can modify firmware behavior through debug interfaces or vulnerability exploitation.</p>
+                        <div class="firmware-risks">
+                            <span class="firmware-risk-tag">JTAG Access</span>
+                            <span class="firmware-risk-tag">Runtime Exploits</span>
+                            <span class="firmware-risk-tag">Debug Backdoors</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Detection & Observability -->
+    <section id="detection">
+        <div class="section-container">
+            <div class="section-header center">
+                <div class="section-number" style="justify-content: center;">08 — Detection & Response</div>
+                <h2 class="section-title">Building Observability into Offload</h2>
+                <p class="section-subtitle">You can't secure what you can't see — implementing Layer 7 visibility</p>
+            </div>
+
+            <div class="detection-grid">
+                <div class="detection-card">
+                    <div class="detection-card-header">
+                        <div class="detection-card-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                        </div>
+                        <span class="detection-card-title">In-NIC Telemetry</span>
+                    </div>
+                    <p class="detection-card-desc">Export per-flow statistics, latency histograms, and anomaly signals directly from SmartNIC to your SIEM.</p>
+                    <div class="detection-metrics">
+                        <div class="detection-metric">
+                            <div class="detection-metric-value">10μs</div>
+                            <div class="detection-metric-label">Sample Rate</div>
+                        </div>
+                        <div class="detection-metric">
+                            <div class="detection-metric-value">99.9%</div>
+                            <div class="detection-metric-label">Coverage</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detection-card">
+                    <div class="detection-card-header">
+                        <div class="detection-card-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </div>
+                        <span class="detection-card-title">Behavioral Analysis</span>
+                    </div>
+                    <p class="detection-card-desc">Baseline normal SmartNIC behavior and alert on deviations in timing, throughput, or error patterns.</p>
+                    <div class="detection-metrics">
+                        <div class="detection-metric">
+                            <div class="detection-metric-value">&lt;1%</div>
+                            <div class="detection-metric-label">False Positive</div>
+                        </div>
+                        <div class="detection-metric">
+                            <div class="detection-metric-value">50ms</div>
+                            <div class="detection-metric-label">Detection Time</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detection-card">
+                    <div class="detection-card-header">
+                        <div class="detection-card-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+                            </svg>
+                        </div>
+                        <span class="detection-card-title">Firmware Attestation</span>
+                    </div>
+                    <p class="detection-card-desc">Continuous remote attestation of SmartNIC firmware integrity using TPM or hardware root of trust.</p>
+                    <div class="detection-metrics">
+                        <div class="detection-metric">
+                            <div class="detection-metric-value">5min</div>
+                            <div class="detection-metric-label">Attest Interval</div>
+                        </div>
+                        <div class="detection-metric">
+                            <div class="detection-metric-value">SHA-384</div>
+                            <div class="detection-metric-label">Hash Algo</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detection-card">
+                    <div class="detection-card-header">
+                        <div class="detection-card-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                        </div>
+                        <span class="detection-card-title">Incident Response</span>
+                    </div>
+                    <p class="detection-card-desc">Automated playbooks to isolate compromised SmartNICs, capture forensic data, and failover traffic.</p>
+                    <div class="detection-metrics">
+                        <div class="detection-metric">
+                            <div class="detection-metric-value">&lt;30s</div>
+                            <div class="detection-metric-label">Isolation Time</div>
+                        </div>
+                        <div class="detection-metric">
+                            <div class="detection-metric-value">100%</div>
+                            <div class="detection-metric-label">Log Capture</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance vs Security Tradeoffs -->
+    <section class="bg-gradient-blue">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-number">09 — Tradeoffs</div>
+                <h2 class="section-title">Performance vs Security Matrix</h2>
+                <p class="section-subtitle">Quantifying the cost of security in offload architectures</p>
+            </div>
+
+            <div class="tradeoffs-matrix">
+                <table class="matrix-table">
+                    <thead>
+                        <tr>
+                            <th>Configuration</th>
+                            <th>Throughput</th>
+                            <th>Latency</th>
+                            <th>Attack Surface</th>
+                            <th>Visibility</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="matrix-config">Full Kernel Path</td>
+                            <td>10 Gbps</td>
+                            <td>~50μs</td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill low" style="width: 30%;"></div></div>
+                            </td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill low" style="width: 95%;"></div></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="matrix-config">XDP (Kernel)</td>
+                            <td>25 Gbps</td>
+                            <td>~10μs</td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill medium" style="width: 50%;"></div></div>
+                            </td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill medium" style="width: 70%;"></div></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="matrix-config">SmartNIC L4 Offload</td>
+                            <td>100 Gbps</td>
+                            <td>~2μs</td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill medium" style="width: 60%;"></div></div>
+                            </td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill medium" style="width: 50%;"></div></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="matrix-config">SmartNIC L7 Offload</td>
+                            <td>50 Gbps</td>
+                            <td>~5μs</td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill high" style="width: 85%;"></div></div>
+                            </td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill high" style="width: 35%;"></div></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="matrix-config">DPDK Full Bypass</td>
+                            <td>200 Gbps</td>
+                            <td>&lt;1μs</td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill high" style="width: 95%;"></div></div>
+                            </td>
+                            <td>
+                                <div class="matrix-bar"><div class="matrix-bar-fill high" style="width: 20%;"></div></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Best Practices -->
+    <section>
+        <div class="section-container">
+            <div class="section-header center">
+                <div class="section-number" style="justify-content: center;">10 — Best Practices</div>
+                <h2 class="section-title">Implementation Guidelines</h2>
+                <p class="section-subtitle">Practical steps for securing your SmartNIC deployment</p>
+            </div>
+
+            <div class="practices-grid">
+                <div class="practice-card">
+                    <div class="practice-card-number">01</div>
+                    <h3 class="practice-card-title">Enable IOMMU Always</h3>
+                    <p class="practice-card-desc">Configure IOMMU in strict mode. Verify ACS (Access Control Services) is enabled on all PCIe bridges to prevent peer-to-peer attacks.</p>
+                </div>
+                <div class="practice-card">
+                    <div class="practice-card-number">02</div>
+                    <h3 class="practice-card-title">Verify Firmware Signatures</h3>
+                    <p class="practice-card-desc">Implement secure boot for SmartNICs. Validate firmware hashes against vendor-published values before deployment.</p>
+                </div>
+                <div class="practice-card">
+                    <div class="practice-card-number">03</div>
+                    <h3 class="practice-card-title">Segment Offload Traffic</h3>
+                    <p class="practice-card-desc">Use VLANs and network segmentation to isolate SmartNIC management traffic from data plane traffic.</p>
+                </div>
+                <div class="practice-card">
+                    <div class="practice-card-number">04</div>
+                    <h3 class="practice-card-title">Minimize L7 Code</h3>
+                    <p class="practice-card-desc">Keep Layer 7 parsing logic minimal. Prefer well-audited parsers. Fuzz test all custom protocol handlers.</p>
+                </div>
+                <div class="practice-card">
+                    <div class="practice-card-number">05</div>
+                    <h3 class="practice-card-title">Deploy In-NIC Telemetry</h3>
+                    <p class="practice-card-desc">Export flow-level telemetry from SmartNIC. Correlate with host-side visibility for complete picture.</p>
+                </div>
+                <div class="practice-card">
+                    <div class="practice-card-number">06</div>
+                    <h3 class="practice-card-title">Plan for Compromise</h3>
+                    <p class="practice-card-desc">Develop incident response playbooks specifically for SmartNIC compromise. Test failover procedures regularly.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-top">
+                <div class="footer-brand">
+                    <h3>SmartNIC Security — Advanced</h3>
+                    <p>A comprehensive deep dive into the security implications of hardware-accelerated networking. Understanding attack surfaces, detection strategies, and implementation best practices.</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-links-column">
+                        <h4>Topics</h4>
+                        <ul>
+                            <li><a href="#memory">Memory Architecture</a></li>
+                            <li><a href="#attacks">Attack Vectors</a></li>
+                            <li><a href="#ebpf">eBPF/XDP</a></li>
+                            <li><a href="#sidechannel">Side Channels</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-links-column">
+                        <h4>Defense</h4>
+                        <ul>
+                            <li><a href="#detection">Detection</a></li>
+                            <li><a href="#multitenancy">Multi-Tenancy</a></li>
+                            <li><a href="#bypass">Kernel Bypass</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-copyright">
+                    Advanced SmartNIC Security Tutorial
+                </div>
+                <div class="footer-disclaimer">
+                    Vendor-neutral educational content. Security research referenced from public advisories and academic publications.
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartNICs at Layer 7 — Security Deep Dive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-tertiary: #111111;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --bg-card-hover: rgba(255, 255, 255, 0.06);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-medium: rgba(255, 255, 255, 0.12);
+            --text-primary: #f5f5f7;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-tertiary: rgba(255, 255, 255, 0.5);
+            --accent-blue: #2997ff;
+            --accent-purple: #bf5af2;
+            --accent-red: #ff453a;
+            --accent-orange: #ff9f0a;
+            --accent-green: #30d158;
+            --accent-cyan: #64d2ff;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.72);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .nav-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-logo {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-logo-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 400;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 120px 24px 80px;
+            overflow: hidden;
+        }
+
+        .hero-bg {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(41, 151, 255, 0.15), transparent);
+        }
+
+        .hero-content {
+            position: relative;
+            max-width: 900px;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 100px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        .hero-badge-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-orange);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .hero-title {
+            font-size: clamp(48px, 10vw, 96px);
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            margin-bottom: 24px;
+        }
+
+        .hero-title-gradient {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(18px, 3vw, 24px);
+            color: var(--text-tertiary);
+            max-width: 600px;
+            margin: 0 auto 48px;
+            font-weight: 400;
+            line-height: 1.4;
+        }
+
+        .hero-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 32px;
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-radius: 100px;
+            font-size: 17px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        .hero-cta:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
+        }
+
+        .hero-cta svg {
+            transition: transform 0.2s;
+        }
+
+        .hero-cta:hover svg {
+            transform: translateX(4px);
+        }
+
+        /* Section Styles */
+        section {
+            padding: 120px 24px;
+            position: relative;
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+        }
+
+        .section-label.blue { color: var(--accent-blue); }
+        .section-label.red { color: var(--accent-red); }
+        .section-label.green { color: var(--accent-green); }
+        .section-label.orange { color: var(--accent-orange); }
+
+        .section-title {
+            font-size: clamp(36px, 6vw, 56px);
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+        }
+
+        .section-subtitle {
+            font-size: 18px;
+            color: var(--text-tertiary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Problem Section */
+        .problem-section {
+            background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .problem-quote {
+            font-size: clamp(28px, 5vw, 48px);
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            max-width: 900px;
+            margin: 0 auto 48px;
+            text-align: center;
+        }
+
+        .problem-quote .highlight {
+            color: var(--accent-orange);
+        }
+
+        .problem-quote .dim {
+            color: var(--text-tertiary);
+        }
+
+        .problem-list {
+            display: grid;
+            gap: 16px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .problem-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 20px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .problem-item:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-medium);
+        }
+
+        .problem-icon {
+            width: 24px;
+            height: 24px;
+            color: var(--accent-red);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .problem-text {
+            font-size: 16px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Architecture Section */
+        .architecture-section {
+            background: var(--bg-secondary);
+        }
+
+        .architecture-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 48px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 32px;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .architecture-grid {
+                grid-template-columns: 1fr;
+            }
+            .architecture-arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        .architecture-box {
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+        }
+
+        .architecture-box-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .architecture-box-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .architecture-box-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .architecture-component {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .architecture-component:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--accent-red);
+            transform: translateX(4px);
+        }
+
+        .architecture-component:last-child {
+            margin-bottom: 0;
+        }
+
+        .component-name {
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .risk-badge {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 4px 10px;
+            border-radius: 100px;
+        }
+
+        .risk-badge.critical {
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--accent-red);
+        }
+
+        .risk-badge.high {
+            background: rgba(255, 159, 10, 0.15);
+            color: var(--accent-orange);
+        }
+
+        .risk-badge.medium {
+            background: rgba(255, 214, 10, 0.15);
+            color: #ffd60a;
+        }
+
+        .architecture-arrow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .arrow-line {
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+            position: relative;
+        }
+
+        .arrow-line::after {
+            content: '';
+            position: absolute;
+            right: -6px;
+            top: -4px;
+            border: 5px solid transparent;
+            border-left-color: var(--accent-cyan);
+        }
+
+        .arrow-label {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .attack-surface-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: rgba(255, 69, 58, 0.1);
+            border: 1px solid rgba(255, 69, 58, 0.3);
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-red);
+        }
+
+        .ipu-box {
+            border-style: dashed;
+            border-color: var(--accent-cyan);
+            background: rgba(100, 210, 255, 0.02);
+        }
+
+        .ipu-feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .ipu-feature:last-child {
+            border-bottom: none;
+        }
+
+        .ipu-feature svg {
+            color: var(--accent-cyan);
+        }
+
+        /* Examples Section */
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 24px;
+        }
+
+        .example-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .example-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 50%, rgba(255, 69, 58, 0.03) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .example-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-4px);
+        }
+
+        .example-card:hover::before {
+            opacity: 1;
+        }
+
+        .example-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .example-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .example-icon.red {
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--accent-red);
+        }
+
+        .example-icon.orange {
+            background: rgba(255, 159, 10, 0.15);
+            color: var(--accent-orange);
+        }
+
+        .example-icon.yellow {
+            background: rgba(255, 214, 10, 0.15);
+            color: #ffd60a;
+        }
+
+        .example-vendor {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .example-type {
+            font-size: 14px;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+        }
+
+        .example-desc {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+        }
+
+        /* Solutions Section */
+        .solutions-section {
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+        }
+
+        .solutions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .solution-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 32px;
+            transition: all 0.3s;
+        }
+
+        .solution-card:hover {
+            border-color: var(--accent-green);
+            background: rgba(48, 209, 88, 0.03);
+        }
+
+        .solution-number {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-green);
+            margin-bottom: 16px;
+        }
+
+        .solution-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(48, 209, 88, 0.12);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-green);
+            margin-bottom: 20px;
+        }
+
+        .solution-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .solution-desc {
+            font-size: 15px;
+            color: var(--text-tertiary);
+            line-height: 1.6;
+        }
+
+        /* Takeaways Section */
+        .takeaways-section {
+            background: var(--bg-primary);
+        }
+
+        .takeaways-card {
+            background: linear-gradient(135deg, rgba(41, 151, 255, 0.05) 0%, rgba(191, 90, 242, 0.05) 100%);
+            border: 1px solid var(--border-subtle);
+            border-radius: 24px;
+            padding: 48px;
+        }
+
+        .takeaway-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .takeaway-item:last-child {
+            border-bottom: none;
+        }
+
+        .takeaway-check {
+            width: 24px;
+            height: 24px;
+            background: rgba(48, 209, 88, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-green);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .takeaway-text {
+            font-size: 17px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Footer */
+        footer {
+            padding: 48px 24px;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 24px;
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .footer-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .footer-text {
+            font-size: 13px;
+            color: var(--text-tertiary);
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .nav-links {
+                display: none;
+            }
+            
+            section {
+                padding: 80px 20px;
+            }
+
+            .architecture-diagram {
+                padding: 24px;
+            }
+
+            .examples-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-content">
+            <div class="nav-logo">
+                <div class="nav-logo-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                SmartNIC Security
+            </div>
+            <div class="nav-links">
+                <a href="#problem">Overview</a>
+                <a href="#architecture">Architecture</a>
+                <a href="#examples">Examples</a>
+                <a href="#solutions">Solutions</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="hero-badge-dot"></span>
+                Security Deep Dive
+            </div>
+            <h1 class="hero-title">
+                SmartNICs at<br>
+                <span class="hero-title-gradient">Layer 7</span>
+            </h1>
+            <p class="hero-subtitle">
+                The hidden security costs of hardware acceleration.<br>
+                Hardware acceleration ≠ automatic security.
+            </p>
+            <a href="#architecture" class="hero-cta">
+                Explore Architecture
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section id="problem" class="problem-section">
+        <div class="section-container">
+            <div class="problem-quote">
+                Some vendors claim Layer 7 offload is <span class="highlight">'more secure.'</span><br>
+                <span class="dim">That's only half the truth.</span>
+            </div>
+            
+            <p style="text-align: center; color: var(--text-tertiary); margin-bottom: 40px; font-size: 17px; max-width: 700px; margin-left: auto; margin-right: auto;">
+                Every inch of visibility you gain comes with more parsing, more trust boundaries, and more code to attack. When you move logic to Layer 7, you also:
+            </p>
+
+            <div class="problem-list">
+                <div class="problem-item">
+                    <svg class="problem-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                    <span class="problem-text">
+                        <strong>Expand your attack surface</strong> into shared memory, routing tables, and input buffers
+                    </span>
+                </div>
+                <div class="problem-item">
+                    <svg class="problem-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                    <span class="problem-text">
+                        <strong>Introduce complex parsing</strong> that can be fuzzed, poisoned, or bypassed
+                    </span>
+                </div>
+                <div class="problem-item">
+                    <svg class="problem-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                    <span class="problem-text">
+                        <strong>Create blind spots</strong> in offload devices where your SOC has less visibility
+                    </span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="architecture-section">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-label blue">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+                    </svg>
+                    Interactive Diagram
+                </div>
+                <h2 class="section-title">Attack Surface Architecture</h2>
+                <p class="section-subtitle">Understanding where vulnerabilities emerge in Layer 7 offload</p>
+            </div>
+
+            <div class="architecture-diagram">
+                <div class="architecture-grid">
+                    <!-- Host Application -->
+                    <div class="architecture-box">
+                        <div class="architecture-box-header">
+                            <div class="architecture-box-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+                                </svg>
+                            </div>
+                            <span class="architecture-box-title">Host Application</span>
+                        </div>
+                        
+                        <div class="architecture-component">
+                            <span class="component-name">Shared Memory</span>
+                            <span class="risk-badge high">High</span>
+                        </div>
+                        <div class="architecture-component">
+                            <span class="component-name">Routing Table</span>
+                            <span class="risk-badge medium">Medium</span>
+                        </div>
+                        <div class="architecture-component">
+                            <span class="component-name">Input Buffer</span>
+                            <span class="risk-badge high">High</span>
+                        </div>
+                    </div>
+
+                    <!-- Arrow -->
+                    <div class="architecture-arrow">
+                        <span class="arrow-label">HTTP Request</span>
+                        <div class="arrow-line"></div>
+                        <div class="attack-surface-badge">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                            Attack Surface
+                        </div>
+                    </div>
+
+                    <!-- IPU Proxy Logic -->
+                    <div class="architecture-box ipu-box">
+                        <div class="architecture-box-header">
+                            <div class="architecture-box-icon" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>
+                                </svg>
+                            </div>
+                            <span class="architecture-box-title">IPU Proxy Logic</span>
+                        </div>
+                        
+                        <div class="ipu-feature">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                            Deep packet inspection
+                        </div>
+                        <div class="ipu-feature">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                            API routing decisions
+                        </div>
+                        <div class="ipu-feature">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                            </svg>
+                            Application-aware filtering
+                        </div>
+                        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--border-subtle); color: var(--text-tertiary); font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14M12 5l7 7-7 7"/>
+                            </svg>
+                            Forward to Backend
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Examples Section -->
+    <section id="examples">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-label red">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    Case Studies
+                </div>
+                <h2 class="section-title">Real-World Examples</h2>
+                <p class="section-subtitle">Documented vulnerabilities in production offload paths</p>
+            </div>
+
+            <div class="examples-grid">
+                <div class="example-card">
+                    <div class="example-header">
+                        <div class="example-icon orange">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+                            </svg>
+                        </div>
+                        <span class="risk-badge medium">Medium</span>
+                    </div>
+                    <h3 class="example-vendor">AWS Nitro</h3>
+                    <p class="example-type">SmartNIC / Enclaves</p>
+                    <p class="example-desc">
+                        Offloads I/O for speed and isolation, but documented research shows potential attack surfaces in virtual sockets and attestation entropy.
+                    </p>
+                </div>
+
+                <div class="example-card">
+                    <div class="example-header">
+                        <div class="example-icon orange">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+                            </svg>
+                        </div>
+                        <span class="risk-badge high">High</span>
+                    </div>
+                    <h3 class="example-vendor">Intel IPU</h3>
+                    <p class="example-type">MMIO Side Channels</p>
+                    <p class="example-desc">
+                        2023 Intel advisory revealed Memory-Mapped I/O side-channel vulnerabilities, proving even hardened offload paths can leak data.
+                    </p>
+                </div>
+
+                <div class="example-card">
+                    <div class="example-header">
+                        <div class="example-icon red">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                            </svg>
+                        </div>
+                        <span class="risk-badge critical">Critical</span>
+                    </div>
+                    <h3 class="example-vendor">Android Binder</h3>
+                    <p class="example-type">Shared Memory Exploit</p>
+                    <p class="example-desc">
+                        Mismatched integer sizes in Binder subsystem allowed out-of-bounds access, showing how shared buffer risks apply across all systems.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solutions Section -->
+    <section id="solutions" class="solutions-section">
+        <div class="section-container">
+            <div class="section-header">
+                <div class="section-label green">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    Mitigation Strategies
+                </div>
+                <h2 class="section-title">The Solution</h2>
+                <p class="section-subtitle">Four principles for secure Layer 7 offload implementation</p>
+            </div>
+
+            <div class="solutions-grid">
+                <div class="solution-card">
+                    <div class="solution-number">01</div>
+                    <div class="solution-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                    </div>
+                    <h3 class="solution-title">Zero-Trust Inside Offload</h3>
+                    <p class="solution-desc">Treat IPU/DPU logic like an untrusted service until validated through cryptographic attestation.</p>
+                </div>
+
+                <div class="solution-card">
+                    <div class="solution-number">02</div>
+                    <div class="solution-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                    </div>
+                    <h3 class="solution-title">Harden Shared Memory</h3>
+                    <p class="solution-desc">Implement isolation, bounds checking, and strict schema validation for all shared buffers.</p>
+                </div>
+
+                <div class="solution-card">
+                    <div class="solution-number">03</div>
+                    <div class="solution-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </div>
+                    <h3 class="solution-title">Telemetry in Offload</h3>
+                    <p class="solution-desc">Deploy real-time Layer 7 visibility and anomaly detection, not just Layer 4 counters.</p>
+                </div>
+
+                <div class="solution-card">
+                    <div class="solution-number">04</div>
+                    <div class="solution-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+                        </svg>
+                    </div>
+                    <h3 class="solution-title">Minimalist Logic</h3>
+                    <p class="solution-desc">Less code equals fewer bugs equals smaller attack surface. Audit every line in the hot path.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Takeaways Section -->
+    <section class="takeaways-section">
+        <div class="section-container">
+            <div class="section-header">
+                <h2 class="section-title">Key Takeaways</h2>
+            </div>
+
+            <div class="takeaways-card">
+                <div class="takeaway-item">
+                    <div class="takeaway-check">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <span class="takeaway-text">Hardware acceleration does not equal automatic security</span>
+                </div>
+                <div class="takeaway-item">
+                    <div class="takeaway-check">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <span class="takeaway-text">Layer 7 offload expands attack surface into shared memory, routing tables, and input buffers</span>
+                </div>
+                <div class="takeaway-item">
+                    <div class="takeaway-check">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <span class="takeaway-text">Even major vendors (AWS, Intel) have documented vulnerabilities in offload paths</span>
+                </div>
+                <div class="takeaway-item">
+                    <div class="takeaway-check">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <span class="takeaway-text">Zero-trust principles must extend into the offload path itself</span>
+                </div>
+                <div class="takeaway-item">
+                    <div class="takeaway-check">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <span class="takeaway-text">Telemetry and visibility inside the NIC/DPU is critical, not just at the host</span>
+                </div>
+                <div class="takeaway-item">
+                    <div class="takeaway-check">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                    </div>
+                    <span class="takeaway-text">Minimalist logic in hot paths reduces attack surface significantly</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-brand">
+                <div class="footer-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <div>
+                    <div style="font-weight: 600;">SmartNIC Security</div>
+                    <div class="footer-text">Layer 7 Attack Surface Tutorial</div>
+                </div>
+            </div>
+            <div class="footer-text">
+                Vendor-neutral educational content based on documented research
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
