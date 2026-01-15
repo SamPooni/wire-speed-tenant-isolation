@@ -241,6 +241,81 @@
         .chapter-card[data-accent="pink"] { --card-accent: linear-gradient(90deg, #ff375f, #ff6b8a); --card-dot: #ff375f; }
         .chapter-card[data-accent="cyan"] { --card-accent: linear-gradient(90deg, #64d2ff, #5ac8fa); --card-dot: #64d2ff; }
         
+        /* Complete Guide Card - Featured */
+        .featured-card {
+            background: linear-gradient(135deg, rgba(41,151,255,0.1) 0%, rgba(191,90,242,0.1) 100%);
+            border: 2px solid rgba(191,90,242,0.3);
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 40px;
+            padding: 40px;
+        }
+        
+        .featured-card:hover {
+            border-color: rgba(191,90,242,0.6);
+            box-shadow: 0 20px 60px rgba(191,90,242,0.2);
+        }
+        
+        .featured-card::before {
+            height: 4px;
+            background: linear-gradient(90deg, #2997ff, #bf5af2, #ff375f);
+        }
+        
+        .featured-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .featured-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(48,209,88,0.2);
+            border: 1px solid rgba(48,209,88,0.4);
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-green);
+            width: fit-content;
+            margin-bottom: 16px;
+        }
+        
+        .featured-title {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+        
+        .featured-desc {
+            font-size: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .featured-stats {
+            display: flex;
+            gap: 24px;
+        }
+        
+        .featured-stat {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .featured-stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+        
+        .featured-stat-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+        }
+        
+
         .footer {
             padding: 40px;
             text-align: center;
@@ -253,6 +328,7 @@
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .chapters-grid { grid-template-columns: 1fr; }
             .hero, .chapters-section { padding: 40px 20px; }
+            .featured-card { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -290,7 +366,36 @@
             <h2 class="section-title">Complete Chapter Guide</h2>
         </div>
         <div class="chapters-grid">
-            <a href="chapter-01-introduction.html" class="chapter-card" data-accent="purple">
+            
+            <!-- FEATURED: Complete Guide -->
+            <a href="wire-speed-guide-standalone.html" class="chapter-card featured-card" data-accent="cyan">
+                <div class="featured-content">
+                    <div class="featured-badge">⭐ COMPLETE GUIDE</div>
+                    <h3 class="chapter-title featured-title">Wire-Speed Tenant Isolation: Full Technical Guide</h3>
+                    <p class="chapter-desc featured-desc">The complete reference covering DPUs, SmartNICs, vendor landscape, security, performance analysis, deployment topologies, and best practices — all in one document.</p>
+                    <div class="featured-stats">
+                        <div class="featured-stat">
+                            <span class="featured-stat-value">27</span>
+                            <span class="featured-stat-label">Diagrams</span>
+                        </div>
+                        <div class="featured-stat">
+                            <span class="featured-stat-value">5,900+</span>
+                            <span class="featured-stat-label">Words</span>
+                        </div>
+                        <div class="featured-stat">
+                            <span class="featured-stat-value">17</span>
+                            <span class="featured-stat-label">Sections</span>
+                        </div>
+                        <div class="featured-stat">
+                            <span class="featured-stat-value">45+</span>
+                            <span class="featured-stat-label">Tables</span>
+                        </div>
+                    </div>
+                </div>
+
+            </a>
+            
+<a href="chapter-01-introduction.html" class="chapter-card" data-accent="purple">
                 <div class="chapter-number"><span class="dot"></span>Chapter 01</div>
                 <h3 class="chapter-title">Introduction to Wire-Speed Isolation</h3>
                 <p class="chapter-desc">Understanding the fundamental challenge of isolating AI tenants at network line rate while maintaining microsecond latencies.</p>
@@ -418,8 +523,18 @@
         </div>
     </section>
     
+    <!-- Source Document -->
+    <section class="chapters-section" style="padding-top: 0;">
+        <div class="chapters-grid" style="grid-template-columns: 1fr;">
+            <a href="wire-speed-guide.html" class="chapter-card" data-accent="cyan">
+                <h3 class="chapter-title">📄 Wire-Speed Guide Source Document</h3>
+                <p class="chapter-desc">View the complete source document.</p>
+            </a>
+        </div>
+    </section>
+    
     <footer class="footer">
-        <p>Wire-Speed Tenant Isolation Documentation • CS²B Technologies Inc. • January 2026</p>
+        <p>Wire-Speed Tenant Isolation Documentation • CS²B Technologies • Subramaniyam Venkata Pooni • January 2026</p>
     </footer>
 </body>
 </html>
